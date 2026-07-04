@@ -1,0 +1,10 @@
+{
+  "name": "ChAIL Interview Platform",
+  "description": "An AI-powered interview practice platform with smart resume skill detection, dynamic question generation, and printable marksheets.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
