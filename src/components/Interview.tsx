@@ -9,7 +9,7 @@ interface InterviewProps {
   preGeneratedQuestions?: Question[];
 }
 
-export default function Interview({ user, onLogout, onInterviewComplete, showNotification, preGeneratedQuestions }: InterviewProps) {
+export default function Interview({ user, onLogout: _onLogout, onInterviewComplete, showNotification, preGeneratedQuestions }: InterviewProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);

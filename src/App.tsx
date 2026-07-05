@@ -61,7 +61,7 @@ export default function App() {
     showNotification("Logged out successfully! See you soon. 👋");
   };
 
-  const handleStartInterview = (skills: Skill[], questions?: Question[]) => {
+  const handleStartInterview = (_skills: Skill[], questions?: Question[]) => {
     if (questions && questions.length > 0) {
       setPreGeneratedQuestions(questions);
     } else {

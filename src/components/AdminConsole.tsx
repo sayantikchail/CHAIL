@@ -15,7 +15,6 @@ import {
   Award, 
   CheckCircle, 
   X,
-  Maximize2,
   BookOpen,
   Eye,
   Shield,
@@ -73,8 +72,6 @@ interface InterviewRecord {
 
 export default function AdminConsole({ user, onLogout, showNotification }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState<"OVERVIEW" | "STUDENTS" | "RESUMES" | "INTERVIEWS" | "GUIDE">("STUDENTS");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   
   // DB Records
@@ -98,21 +95,13 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
   const [studentToDelete, setStudentToDelete] = useState<{ id: number; name: string } | null>(null);
   const [interviewToDelete, setInterviewToDelete] = useState<{ id: number; studentName: string } | null>(null);
   const [adminToDelete, setAdminToDelete] = useState<{ id: number; name: string } | null>(null);
-
-  // Live action/neural log feed (recreated from template)
-  const [logs, setLogs] = useState<string[]>([
-    "[SYSTEM] : INITIALIZING BIOMETRIC SCAN...",
-    "[SUCCESS] : ACCESS GRANTED TO SUPREME ARCHITECT...",
-    `[INFO] : CHAIL ADMIN PROTOCOL ACTIVE - LOGGED IN AS ${user.name.toUpperCase()}`
-  ]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Track counts to detect actual updates
   const prevCounts = useRef({ students: 0, resumes: 0, interviews: 0, initialized: false });
 
   // Fetch admin console records
-  const fetchAdminData = async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
-    else setRefreshing(true);
+  const fetchAdminData = async (_isSilent = false) => {
 
     try {
       const res = await fetch("/api/admin/data");
@@ -165,14 +154,13 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
       console.error(err);
       addLog(`[ERROR] : Database sync failed: ${err.message}`);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Done syncing
     }
   };
 
   const addLog = (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs(prev => [`[${timestamp}] ${msg}`, ...prev.slice(0, 19)]);
+    console.log(`[${timestamp}] ${msg}`);
   };
 
   const handleManualSync = async () => {
@@ -323,11 +311,6 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
   const totalStudentsCount = students.length;
   const totalResumesCount = resumes.length;
   const totalInterviewsCount = interviews.length;
-  const totalAdminsCount = admins.length;
-  
-  const averageScore = interviews.length > 0 
-    ? Math.round(interviews.reduce((acc, curr) => acc + curr.percentage, 0) / interviews.length)
-    : 0;
 
   return (
     <div className="admin-console-wrapper">
@@ -370,7 +353,7 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
 
         .dashboard-container {
           width: 98vw; 
-          min-height: 94vh;
+          height: 94vh;
           display: grid; 
           grid-template-columns: 310px 1fr;
           background: rgba(8, 12, 24, 0.96);
@@ -510,19 +493,26 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
 
         /* Custom scrollbar styling */
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 8px;
+          height: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: rgba(255, 255, 255, 0.02);
-          border-radius: 4px;
+          border-radius: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.12);
-          border-radius: 4px;
-          border: 1px solid transparent;
+          background: rgba(0, 242, 255, 0.25);
+          border-radius: 6px;
+          border: 1px solid rgba(0, 242, 255, 0.1);
+          box-shadow: inset 0 0 6px rgba(0, 242, 255, 0.1);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(0, 242, 255, 0.5);
+          box-shadow: inset 0 0 8px rgba(0, 242, 255, 0.2);
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(0, 242, 255, 0.3) rgba(255, 255, 255, 0.02);
         }
 
         /* Sidebar Navigation buttons */
@@ -598,7 +588,8 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
         main { 
           padding: 40px 50px; 
           overflow-y: auto; 
-          max-height: 94vh;
+          height: 100%;
+          max-height: 100%;
           display: flex;
           flex-direction: column;
         }
@@ -688,7 +679,7 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
         }
 
         .admin-table-scroll {
-          max-height: 480px;
+          max-height: 320px;
           overflow-y: auto;
           overflow-x: auto;
         }
@@ -1666,10 +1657,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                 Cancel Protocol
               </button>
               <button
+                disabled={isDeleting}
                 onClick={async () => {
                   const targetId = studentToDelete.id;
                   const targetName = studentToDelete.name;
-                  setStudentToDelete(null);
+                  setIsDeleting(true);
                   try {
                     const res = await fetch(`/api/admin/student/${targetId}`, { method: "DELETE" });
                     const data = await res.json();
@@ -1682,8 +1674,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     setStudents(prev => prev.filter(s => s.id !== targetId));
                     setResumes(prev => prev.filter(r => r.user_id !== targetId));
                     setInterviews(prev => prev.filter(i => i.user_id !== targetId));
+                    setStudentToDelete(null);
                   } catch (err: any) {
                     showNotification(`❌ Error deleting account: ${err.message}`);
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }}
                 style={{
@@ -1695,10 +1690,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                   borderRadius: "10px",
                   fontSize: "12px",
                   fontWeight: "700",
-                  cursor: "pointer"
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.7 : 1
                 }}
               >
-                Confirm Deletion 💥
+                {isDeleting ? "Purging Candidate..." : "Confirm Deletion 💥"}
               </button>
             </div>
           </div>
@@ -1747,10 +1743,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                 Cancel Protocol
               </button>
               <button
+                disabled={isDeleting}
                 onClick={async () => {
                   const targetId = interviewToDelete.id;
                   const targetName = interviewToDelete.studentName;
-                  setInterviewToDelete(null);
+                  setIsDeleting(true);
                   try {
                     const res = await fetch(`/api/admin/interview/${targetId}`, { method: "DELETE" });
                     const data = await res.json();
@@ -1761,8 +1758,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     
                     // Update local state immediately
                     setInterviews(prev => prev.filter(i => i.id !== targetId));
+                    setInterviewToDelete(null);
                   } catch (err: any) {
                     showNotification(`❌ Error deleting interview: ${err.message}`);
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }}
                 style={{
@@ -1774,10 +1774,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                   borderRadius: "10px",
                   fontSize: "12px",
                   fontWeight: "700",
-                  cursor: "pointer"
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.7 : 1
                 }}
               >
-                Confirm Purge 💥
+                {isDeleting ? "Purging Session..." : "Confirm Purge 💥"}
               </button>
             </div>
           </div>
@@ -1826,10 +1827,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                 Cancel Purge
               </button>
               <button
+                disabled={isDeleting}
                 onClick={async () => {
                   const targetId = adminToDelete.id;
                   const targetName = adminToDelete.name;
-                  setAdminToDelete(null);
+                  setIsDeleting(true);
                   try {
                     const res = await fetch(`/api/admin/admin-user/${targetId}`, { method: "DELETE" });
                     const data = await res.json();
@@ -1840,8 +1842,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     
                     // Update local state immediately
                     setAdmins(prev => prev.filter(a => a.id !== targetId));
+                    setAdminToDelete(null);
                   } catch (err: any) {
                     showNotification(`❌ Error deleting admin: ${err.message}`);
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }}
                 style={{
@@ -1853,10 +1858,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                   borderRadius: "10px",
                   fontSize: "12px",
                   fontWeight: "700",
-                  cursor: "pointer"
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.7 : 1
                 }}
               >
-                Confirm Purge 💥
+                {isDeleting ? "De-authorizing..." : "Confirm Purge 💥"}
               </button>
             </div>
           </div>
@@ -2036,8 +2042,8 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     {(() => {
                       const scores = safeParse(viewingInterview.scores, {});
                       const parameterDetails: Record<string, { label: string; sl: number }> = {
-                        confidence: { label: "Communication Confidence & Board Poise", sl: 1 },
-                        clarity: { label: "Logical Articulation & Thought Clarity", sl: 2 },
+                        confidence: { label: "Communication Confidence & Conviction", sl: 1 },
+                        clarity: { label: "Explanation Structure & Clarity", sl: 2 },
                         relevance: { label: "Resume-Domain Relevance & Alignment", sl: 3 },
                         technicalDepth: { label: "Technical Competence & Concept Depth", sl: 4 },
                         grammar: { label: "Grammar, Phrasing & Professional Vocabulary", sl: 5 }

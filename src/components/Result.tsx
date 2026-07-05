@@ -10,7 +10,6 @@ interface ResultProps {
 export default function Result({ user, onRetry, showNotification }: ResultProps) {
   const [report, setReport] = useState<ReportCard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
     const fetchLatestReport = async () => {
@@ -36,14 +35,14 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
           performanceLevel: "EXCELLENT",
           strengths: [
             "Demonstrated superb command over core domain subjects and logical structuring.",
-            "Spoke with steady and professional pacing, maintaining high speech clarity.",
+            "Articulated answers with steady and professional pacing, maintaining high explanation clarity.",
             "Adapted quickly to technical scenario questions, displaying stellar composure."
           ],
           developmentAreas: [
             "Explain structural architecture or code blocks with practical analogies where possible.",
             "Formulate detailed project application models rather than general concepts."
           ],
-          summary: "The candidate performed exceptionally well across all core parameters. Speech clarity was stellar, and the technical depth matches physical academic board expectations. Highly recommended for full-stack deployment roles.",
+          summary: "The candidate performed exceptionally well across all core parameters. Explanation clarity was stellar, and the technical depth matches physical academic board expectations. Highly recommended for full-stack deployment roles.",
           feedback: [
             "Practice structuring scenarios using standard design patterns for higher academic grades.",
             "Ensure usage of specific industry vocabulary to strengthen domain depth rating.",
@@ -51,7 +50,7 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
           ],
           scores: {
             confidence: { score: 90, remark: "Outstanding poise" },
-            clarity: { score: 85, remark: "Highly structured speech" },
+            clarity: { score: 85, remark: "Highly structured explanations" },
             relevance: { score: 82, remark: "Perfect context match" },
             technicalDepth: { score: 88, remark: "Deep theoretical command" },
             grammar: { score: 80, remark: "Very clear phrasing" }
@@ -997,6 +996,82 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
                 <div className="meta"><b>Institution:</b> <span>{report.institution}</span></div>
                 <div className="meta"><b>Session:</b> <span>AI Interview Practice</span></div>
                 <div className="meta"><b>Date:</b> <span>{report.date}</span></div>
+              </div>
+
+              {/* Parametric Score Table */}
+              <div className="table-wrap animate-fade-in" style={{ margin: "10px 0" }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "22%", padding: "10px" }}>Evaluation Parameter</th>
+                      <th style={{ width: "15%", textTransform: "uppercase", padding: "10px", textAlign: "center" }}>Score (100)</th>
+                      <th style={{ width: "15%", textTransform: "uppercase", padding: "10px", textAlign: "center" }}>Grade</th>
+                      <th style={{ width: "48%", padding: "10px" }}>Assessor Feedback & Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: "10px" }}><b>Confidence & Poise</b></td>
+                      <td style={{ padding: "10px", textAlign: "center" }}>
+                        <span className="score-pill" style={{ background: (report.scores?.confidence?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.confidence?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
+                          {report.scores?.confidence?.score ?? 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                        {(report.scores?.confidence?.score ?? 0) >= 90 ? "A+" : (report.scores?.confidence?.score ?? 0) >= 80 ? "A" : (report.scores?.confidence?.score ?? 0) >= 70 ? "B+" : (report.scores?.confidence?.score ?? 0) >= 60 ? "B" : (report.scores?.confidence?.score ?? 0) >= 50 ? "C" : "F"}
+                      </td>
+                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.confidence?.remark ?? "No feedback provided."}</div></td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "10px" }}><b>Clarity & Structure</b></td>
+                      <td style={{ padding: "10px", textAlign: "center" }}>
+                        <span className="score-pill" style={{ background: (report.scores?.clarity?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.clarity?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
+                          {report.scores?.clarity?.score ?? 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                        {(report.scores?.clarity?.score ?? 0) >= 90 ? "A+" : (report.scores?.clarity?.score ?? 0) >= 80 ? "A" : (report.scores?.clarity?.score ?? 0) >= 70 ? "B+" : (report.scores?.clarity?.score ?? 0) >= 60 ? "B" : (report.scores?.clarity?.score ?? 0) >= 50 ? "C" : "F"}
+                      </td>
+                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.clarity?.remark ?? "No feedback provided."}</div></td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "10px" }}><b>Relevance & Context</b></td>
+                      <td style={{ padding: "10px", textAlign: "center" }}>
+                        <span className="score-pill" style={{ background: (report.scores?.relevance?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.relevance?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
+                          {report.scores?.relevance?.score ?? 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                        {(report.scores?.relevance?.score ?? 0) >= 90 ? "A+" : (report.scores?.relevance?.score ?? 0) >= 80 ? "A" : (report.scores?.relevance?.score ?? 0) >= 70 ? "B+" : (report.scores?.relevance?.score ?? 0) >= 60 ? "B" : (report.scores?.relevance?.score ?? 0) >= 50 ? "C" : "F"}
+                      </td>
+                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.relevance?.remark ?? "No feedback provided."}</div></td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "10px" }}><b>Technical / Domain Depth</b></td>
+                      <td style={{ padding: "10px", textAlign: "center" }}>
+                        <span className="score-pill" style={{ background: (report.scores?.technicalDepth?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.technicalDepth?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
+                          {report.scores?.technicalDepth?.score ?? 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                        {(report.scores?.technicalDepth?.score ?? 0) >= 90 ? "A+" : (report.scores?.technicalDepth?.score ?? 0) >= 80 ? "A" : (report.scores?.technicalDepth?.score ?? 0) >= 70 ? "B+" : (report.scores?.technicalDepth?.score ?? 0) >= 60 ? "B" : (report.scores?.technicalDepth?.score ?? 0) >= 50 ? "C" : "F"}
+                      </td>
+                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.technicalDepth?.remark ?? "No feedback provided."}</div></td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "10px" }}><b>Grammar & Vocabulary</b></td>
+                      <td style={{ padding: "10px", textAlign: "center" }}>
+                        <span className="score-pill" style={{ background: (report.scores?.grammar?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.grammar?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
+                          {report.scores?.grammar?.score ?? 0}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                        {(report.scores?.grammar?.score ?? 0) >= 90 ? "A+" : (report.scores?.grammar?.score ?? 0) >= 80 ? "A" : (report.scores?.grammar?.score ?? 0) >= 70 ? "B+" : (report.scores?.grammar?.score ?? 0) >= 60 ? "B" : (report.scores?.grammar?.score ?? 0) >= 50 ? "C" : "F"}
+                      </td>
+                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.grammar?.remark ?? "No feedback provided."}</div></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               {/* Verdict and AI Recommendations */}

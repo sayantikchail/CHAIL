@@ -27,6 +27,12 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
   const [isShaking, setIsShaking] = useState(false);
   const [admin2FaError, setAdmin2FaError] = useState<string | null>(null);
 
+  const changeView = (v: typeof view) => {
+    setView(v);
+    setErrorMsg(null);
+    setAdmin2FaError(null);
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -50,7 +56,7 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
 
       if (data.needs2FA) {
         showNotification("Admin detected. Loading 2FA Verification... 🔐");
-        setView("ADMIN_LOGIN_VERIFY");
+        changeView("ADMIN_LOGIN_VERIFY");
       } else {
         showNotification("Welcome back! Login Successful! 🚀");
         onLoginSuccess(data.user);
@@ -64,8 +70,9 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!fullName || !signupEmail || !signupPassword) {
-      alert("Please fill all signup fields.");
+      setErrorMsg("Please fill all signup fields.");
       return;
     }
 
@@ -90,9 +97,9 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       }
 
       showNotification("Account Created Successfully! Please login now. ✨");
-      setView("LOGIN");
+      changeView("LOGIN");
     } catch (err: any) {
-      alert(err.message);
+      setErrorMsg(err.message);
     } finally {
       setLoading(false);
     }
@@ -100,17 +107,19 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
 
   const handleAdminRegisterRequest = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!adminName || !adminEmail || !adminPassword) {
-      alert("Please fill all fields.");
+      setErrorMsg("Please fill all fields.");
       return;
     }
-    setView("ADMIN_SIGNUP_VERIFY");
+    changeView("ADMIN_SIGNUP_VERIFY");
   };
 
   const verifyAdminRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!adminRegCode || adminRegCode.length < 4) {
-      alert("Please enter a valid verification code.");
+      setErrorMsg("Please enter a valid verification code.");
       return;
     }
 
@@ -133,14 +142,14 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       }
 
       showNotification("Admin Account Created Successfully! 🛡️");
-      setView("LOGIN");
+      changeView("LOGIN");
       // Reset fields
       setAdminName("");
       setAdminEmail("");
       setAdminPassword("");
       setAdminRegCode("");
     } catch (err: any) {
-      alert(err.message);
+      setErrorMsg(err.message);
     } finally {
       setLoading(false);
     }
@@ -572,10 +581,10 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                   {loading ? "Logging in..." : "Login 🚀"}
                 </button>
                 <div className="switch">
-                  New User? <span onClick={() => setView("SIGNUP")}>Create Account</span>
+                  New User? <span onClick={() => changeView("SIGNUP")}>Create Account</span>
                 </div>
                 <div className="switch">
-                  Admin? <span onClick={() => setView("ADMIN_SIGNUP")}>Create Admin</span>
+                  Admin? <span onClick={() => changeView("ADMIN_SIGNUP")}>Create Admin</span>
                 </div>
               </form>
             )}
@@ -585,6 +594,14 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
               <form onSubmit={handleRegister} id="signup">
                 <h2>Sign Up</h2>
                 <div className="subtitle">Join our AI community today</div>
+                
+                {errorMsg && (
+                  <div className="login-error-alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{errorMsg}</span>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <input
                     type="text"
@@ -616,7 +633,7 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                   {loading ? "Creating..." : "Create Account ✨"}
                 </button>
                 <div className="switch">
-                  Already have an account? <span onClick={() => setView("LOGIN")}>Login</span>
+                  Already have an account? <span onClick={() => changeView("LOGIN")}>Login</span>
                 </div>
               </form>
             )}
@@ -626,6 +643,14 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
               <form onSubmit={handleAdminRegisterRequest} id="adminSignup">
                 <h2>Admin Access</h2>
                 <div className="subtitle">Create a new administrator account</div>
+                
+                {errorMsg && (
+                  <div className="login-error-alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{errorMsg}</span>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <input
                     type="text"
@@ -657,7 +682,7 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                   Request Admin Access 🛡️
                 </button>
                 <div className="switch">
-                  Back to <span onClick={() => setView("LOGIN")}>Login</span>
+                  Back to <span onClick={() => changeView("LOGIN")}>Login</span>
                 </div>
               </form>
             )}
@@ -667,6 +692,14 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
               <form onSubmit={verifyAdminRegistration} id="adminSignupVerify">
                 <h2>Admin Identity</h2>
                 <div className="subtitle">Verification needed to create admin</div>
+                
+                {errorMsg && (
+                  <div className="login-error-alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{errorMsg}</span>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <input
                     className="v-code"
@@ -682,7 +715,7 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                   {loading ? "Verifying..." : "Verify & Create 🛡️"}
                 </button>
                 <div className="switch">
-                  <span onClick={() => setView("ADMIN_SIGNUP")}>← Go Back</span>
+                  <span onClick={() => changeView("ADMIN_SIGNUP")}>← Go Back</span>
                 </div>
               </form>
             )}
@@ -733,7 +766,7 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                   {loading ? "Authorizing..." : "Authorize Login 🔑"}
                 </button>
                 <div className="switch">
-                  <span onClick={() => { setView("LOGIN"); setAdmin2FaError(null); }}>← Back to Login</span>
+                  <span onClick={() => { changeView("LOGIN"); }}>← Back to Login</span>
                 </div>
               </form>
             )}
