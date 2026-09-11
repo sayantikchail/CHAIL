@@ -55,18 +55,18 @@ interface InterviewRecord {
   user_id: number;
   qualification: string;
   stream: string;
-  skills: string; // JSON array
-  questions: string; // JSON array
-  answers: string; // JSON array
-  scores: string; // JSON scores object
+  skills: any; // JSON array or parsed array
+  questions: any; // JSON array or parsed array
+  answers: any; // JSON array or parsed array
+  scores: any; // JSON scores object or parsed object
   overall_score: number;
   percentage: number;
   final_grade: string;
   performance_level: string;
-  strengths: string; // JSON array
-  development_areas: string; // JSON array
+  strengths: any; // JSON array or parsed array
+  development_areas: any; // JSON array or parsed array
   summary: string;
-  feedback: string; // JSON array
+  feedback: any; // JSON array or parsed array
   date_created: string;
 }
 
@@ -268,13 +268,22 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
     setInterviewToDelete({ id, studentName });
   };
 
-  // Safe JSON Parsing helper
-  const safeParse = (str: string, fallback: any) => {
-    try {
-      return JSON.parse(str);
-    } catch (e) {
-      return fallback;
+  // Safe JSON Parsing helper (handles both pre-parsed objects and JSON strings)
+  const safeParse = (val: any, fallback: any) => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === "object") return val;
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (!trimmed || trimmed === "[object Object]" || trimmed === "undefined" || trimmed === "null") {
+        return fallback;
+      }
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        return fallback;
+      }
     }
+    return fallback;
   };
 
   // Filter students / resumes / interviews based on search and selected profile filters
@@ -1875,9 +1884,33 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: "min(1050px, 95vw)" }}>
             <X className="modal-close" onClick={() => setViewingInterview(null)} />
             
-            <h2 style={{ fontFamily: "Syncopate", fontSize: "15px", color: "var(--accent)", marginBottom: "25px", letterSpacing: "2px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <Award size={18} style={{ color: "var(--accent)" }} /> OFFICIAL INTERVIEW ASSESSMENT REPORT CARD & MARKSHEET
-            </h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "12px" }}>
+              <h2 style={{ fontFamily: "Syncopate", fontSize: "15px", color: "var(--accent)", margin: 0, letterSpacing: "2px", display: "flex", alignItems: "center", gap: "10px" }}>
+                <Award size={18} style={{ color: "var(--accent)" }} /> OFFICIAL INTERVIEW ASSESSMENT REPORT CARD & MARKSHEET
+              </h2>
+              <a
+                href={`/api/interview/print/${viewingInterview.user_id}/${viewingInterview.id}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "rgba(0, 242, 255, 0.08)",
+                  border: "1px solid var(--accent)",
+                  color: "var(--accent)",
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  textDecoration: "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                📄 Open Printable Transcript (A4)
+              </a>
+            </div>
 
             {/* Premium SVU Academic Marksheet Panel */}
             <div style={{
@@ -2053,9 +2086,17 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                       const keys = ["confidence", "clarity", "relevance", "technicalDepth", "grammar"];
                       
                       return keys.map((key, i) => {
-                        const item = scores[key] || { score: 0, remark: "No marks saved." };
+                        const item = scores[key] 
+                          || scores[key.toLowerCase()]
+                          || (key === "technicalDepth" ? (scores["technical_depth"] || scores["technical"] || scores["technicalCompetence"]) : null)
+                          || (key === "relevance" ? (scores["resumeRelevance"] || scores["relevance_context"]) : null)
+                          || (key === "confidence" ? (scores["confidence_conviction"] || scores["communication"]) : null)
+                          || (key === "clarity" ? (scores["structure_clarity"] || scores["explanation"]) : null)
+                          || (key === "grammar" ? (scores["vocabulary"] || scores["sentence_phrasing"]) : null)
+                          || { score: 0, remark: "No marks saved." };
+
                         const scoreVal = typeof item === "object" ? (item.score ?? 0) : (typeof item === "number" ? item : 0);
-                        const remarkVal = typeof item === "object" ? (item.remark || "Satisfactory feedback provided.") : "Satisfactory feedback provided.";
+                        const remarkVal = typeof item === "object" ? (item.remark || item.feedback || item.comment || "Satisfactory feedback provided.") : "Satisfactory feedback provided.";
                         const details = parameterDetails[key] || { label: key.replace(/([A-Z])/g, ' $1').trim(), sl: i + 1 };
 
                         let subGrade = "F";

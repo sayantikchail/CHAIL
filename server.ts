@@ -829,10 +829,21 @@ app.get("/api/admin/data", async (_req, res) => {
     const [interviews]: any = await pool.execute("SELECT id, user_id, qualification, stream, skills, questions, answers, scores, overall_score, percentage, final_grade, performance_level, strengths, development_areas, summary, feedback, date_created FROM interviews");
     const [admins]: any = await pool.execute("SELECT id, name, email FROM users WHERE is_admin = 1");
 
+    const parsedInterviews = (interviews || []).map((interview: any) => ({
+      ...interview,
+      scores: safeJsonParse(interview.scores, {}),
+      skills: safeJsonParse(interview.skills, []),
+      questions: safeJsonParse(interview.questions, []),
+      answers: safeJsonParse(interview.answers, []),
+      strengths: safeJsonParse(interview.strengths, []),
+      development_areas: safeJsonParse(interview.development_areas, []),
+      feedback: safeJsonParse(interview.feedback, [])
+    }));
+
     return res.status(200).json({
       students,
       resumes,
-      interviews,
+      interviews: parsedInterviews,
       admins
     });
   } catch (error: any) {
