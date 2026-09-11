@@ -30,11 +30,13 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
   const [admin2FaError, setAdmin2FaError] = useState<string | null>(null);
+  const [smtpWarning, setSmtpWarning] = useState<string | null>(null);
 
   const changeView = (v: typeof view) => {
     setView(v);
     setErrorMsg(null);
     setAdmin2FaError(null);
+    setSmtpWarning(null);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -64,6 +66,11 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       } else if (data.requireOtp) {
         setPendingUserId(data.userId);
         setPendingEmail(data.email || loginEmail);
+        if (data.emailSent === false) {
+          setSmtpWarning(data.smtpError || "Email delivery failed via SMTP. Please check Render Dashboard > Logs for your 6-digit OTP code.");
+        } else {
+          setSmtpWarning(null);
+        }
         showNotification(data.message || "A 6-digit OTP code has been sent to your email address! 🔐");
         changeView("USER_OTP_VERIFY");
       } else {
@@ -129,6 +136,12 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to resend OTP");
+      }
+
+      if (data.emailSent === false) {
+        setSmtpWarning(data.smtpError || "Email delivery failed via SMTP. Please check Render Dashboard > Logs for your 6-digit OTP code.");
+      } else {
+        setSmtpWarning(null);
       }
 
       showNotification(data.message || "A fresh 6-digit OTP code has been sent to your email! 📩");
@@ -668,6 +681,25 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
               <form onSubmit={handleVerifyUserOtp} id="userOtpVerify" className={isShaking ? "shake-form" : ""}>
                 <h2>Email OTP Verification</h2>
                 <div className="subtitle">Enter the 6-digit code sent to {pendingEmail || "your email"}</div>
+
+                {smtpWarning && (
+                  <div style={{
+                    background: "rgba(245, 158, 11, 0.12)",
+                    border: "1px dashed rgba(245, 158, 11, 0.6)",
+                    borderRadius: "14px",
+                    padding: "12px 14px",
+                    color: "#fef08a",
+                    fontSize: "12px",
+                    lineHeight: "1.5",
+                    marginBottom: "16px",
+                    textAlign: "left"
+                  }}>
+                    <strong style={{ color: "#f59e0b" }}>⚠️ Email Dispatch Notice:</strong> {smtpWarning}
+                    <div style={{ marginTop: "6px", fontSize: "11px", color: "#e2e8f0" }}>
+                      💡 If your Gmail App Password failed on Render, you can view your active 6-digit OTP directly inside your <strong>Render Dashboard &gt; Logs</strong>!
+                    </div>
+                  </div>
+                )}
 
                 {errorMsg && (
                   <div className="login-error-alert">

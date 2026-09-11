@@ -664,20 +664,97 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Nodemailer transporter helper
+// Nodemailer transporter helper with robust Render & Gmail compatibility
 function getMailer() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const rawUser = process.env.SMTP_USER || "";
+  const rawPass = process.env.SMTP_PASS || "";
+
+  // Strip leading/trailing quotes often added by copy-pasting into Render environment variables
+  let user = rawUser.replace(/^["']|["']$/g, "").trim();
+  if (user.endsWith(".gmail.com") && !user.includes("@")) {
+    user = user.replace(/\.gmail\.com$/, "@gmail.com");
+  }
+  // Strip quotes AND all spaces (Google App Passwords are 16 letters with spaces like "abcd efgh ijkl mnop")
+  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
+
   if (!user || !pass) {
     return null;
   }
+
+  const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
+  const host = rawHost.replace(/^["']|["']$/g, "").trim();
+  const isGmail = host.toLowerCase().includes("gmail") || user.toLowerCase().includes("@gmail.com");
+
+  if (isGmail) {
+    // Using service: "gmail" connects directly via secure SSL (port 465)
+    // and bypasses port 587 STARTTLS firewall restrictions common on cloud platforms like Render
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass },
+      connectionTimeout: 12000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
+
+  const port = parseInt(process.env.SMTP_PORT || "587", 10);
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
-    secure: process.env.SMTP_PORT === "465",
-    auth: { user, pass }
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    connectionTimeout: 12000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    tls: {
+      rejectUnauthorized: false
+    }
   });
 }
+
+// Diagnostic endpoint to verify SMTP credentials and server connectivity
+app.get("/api/auth/test-smtp", async (_req, res) => {
+  const rawUser = process.env.SMTP_USER || "";
+  const rawPass = process.env.SMTP_PASS || "";
+  let user = rawUser.replace(/^["']|["']$/g, "").trim();
+  if (user.endsWith(".gmail.com") && !user.includes("@")) {
+    user = user.replace(/\.gmail\.com$/, "@gmail.com");
+  }
+  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
+
+  if (!user || !pass) {
+    return res.status(200).json({
+      configured: false,
+      message: "SMTP_USER or SMTP_PASS environment variables are not set on Render. Please configure them in Render Dashboard > Environment."
+    });
+  }
+
+  const mailer = getMailer();
+  if (!mailer) {
+    return res.status(500).json({ configured: false, error: "Failed to initialize mailer transport." });
+  }
+
+  try {
+    await mailer.verify();
+    return res.status(200).json({
+      configured: true,
+      verified: true,
+      user,
+      message: "SMTP credentials verified successfully! Email dispatch is active."
+    });
+  } catch (err: any) {
+    return res.status(200).json({
+      configured: true,
+      verified: false,
+      user,
+      error: err.message || String(err),
+      tip: "If using Gmail, ensure 2-Step Verification is ON and you generated a 16-character 'App Password' from myaccount.google.com/apppasswords. Do NOT use your regular Gmail password."
+    });
+  }
+});
 
 // HTML Email Template for OTP Verification
 function generateOtpHtml(otp: string, recipientName: string) {
@@ -768,18 +845,27 @@ app.post("/api/auth/login", async (req, res) => {
     // Send email using Nodemailer
     const mailer = getMailer();
     let emailSent = false;
+    let smtpError: string | null = null;
+    const senderEmail = (process.env.SMTP_USER || "").replace(/^["']|["']$/g, "").trim() || "svu-portal@education.ac.in";
+
     if (mailer) {
       try {
         await mailer.sendMail({
-          from: `"SVU Academic Portal" <${process.env.SMTP_USER}>`,
+          from: `"SVU Academic Portal" <${senderEmail}>`,
           to: user.email,
           subject: `🔐 SVU Verification Code: ${otp}`,
           html: generateOtpHtml(otp, user.name)
         });
         emailSent = true;
+        console.log(`[SMTP SUCCESS] OTP email successfully delivered to ${user.email}`);
       } catch (mErr: any) {
-        console.error("Failed to deliver OTP email via SMTP:", mErr.message || mErr);
+        smtpError = mErr.message || String(mErr);
+        console.error(`[SMTP ERROR on Render] Failed to deliver OTP email to ${user.email}:`, smtpError);
+        console.error("Tip: Ensure you are using a 16-character Google App Password (not normal password) without quotes/spaces.");
       }
+    } else {
+      smtpError = "SMTP_USER or SMTP_PASS environment variable is missing on Render.";
+      console.warn("[SMTP NOTICE]", smtpError);
     }
 
     console.log(`\n========================================\n[SVU OTP LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
@@ -788,7 +874,11 @@ app.post("/api/auth/login", async (req, res) => {
       requireOtp: true,
       userId: user.id,
       email: user.email,
-      message: "A 6-digit verification code has been sent to your email address!"
+      emailSent,
+      smtpError,
+      message: emailSent
+        ? "A 6-digit verification code has been sent to your email address!"
+        : "OTP code generated! (SMTP delivery warning: " + (smtpError || "Check Render logs") + ")"
     });
   } catch (error: any) {
     return res.status(500).json({ error: "Database error: " + error.message });
@@ -875,24 +965,35 @@ app.post("/api/auth/resend-otp", async (req, res) => {
 
     const mailer = getMailer();
     let emailSent = false;
+    let smtpError: string | null = null;
+    const senderEmail = (process.env.SMTP_USER || "").replace(/^["']|["']$/g, "").trim() || "svu-portal@education.ac.in";
+
     if (mailer) {
       try {
         await mailer.sendMail({
-          from: `"SVU Academic Portal" <${process.env.SMTP_USER}>`,
+          from: `"SVU Academic Portal" <${senderEmail}>`,
           to: user.email,
           subject: `🔐 Resent SVU Verification Code: ${otp}`,
           html: generateOtpHtml(otp, user.name)
         });
         emailSent = true;
+        console.log(`[SMTP SUCCESS] Resent OTP email successfully delivered to ${user.email}`);
       } catch (mErr: any) {
-        console.error("Failed to resend OTP email via SMTP:", mErr.message || mErr);
+        smtpError = mErr.message || String(mErr);
+        console.error(`[SMTP ERROR on Render] Failed to resend OTP email to ${user.email}:`, smtpError);
       }
+    } else {
+      smtpError = "SMTP_USER or SMTP_PASS environment variable is missing on Render.";
     }
 
     console.log(`\n========================================\n[SVU OTP RESEND LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
 
     return res.status(200).json({
-      message: "A fresh 6-digit verification code has been sent to your email!"
+      emailSent,
+      smtpError,
+      message: emailSent
+        ? "A fresh 6-digit verification code has been sent to your email!"
+        : "Fresh OTP generated! (Delivery status: " + (smtpError || "Check Render logs") + ")"
     });
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to resend OTP: " + error.message });
