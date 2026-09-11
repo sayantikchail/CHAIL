@@ -7,12 +7,16 @@ interface LoginProps {
 }
 
 export default function Login({ onLoginSuccess, showNotification }: LoginProps) {
-  const [view, setView] = useState<"LOGIN" | "SIGNUP" | "ADMIN_SIGNUP" | "ADMIN_SIGNUP_VERIFY" | "ADMIN_LOGIN_VERIFY">("LOGIN");
+  const [view, setView] = useState<"LOGIN" | "SIGNUP" | "ADMIN_SIGNUP" | "ADMIN_SIGNUP_VERIFY" | "ADMIN_LOGIN_VERIFY" | "USER_OTP_VERIFY">("LOGIN");
   const [loading, setLoading] = useState(false);
 
   // Form states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+
+  const [userOtp, setUserOtp] = useState("");
+  const [pendingUserId, setPendingUserId] = useState<number | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string>("");
 
   const [fullName, setFullName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
@@ -57,10 +61,77 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       if (data.needs2FA) {
         showNotification("Admin detected. Loading 2FA Verification... 🔐");
         changeView("ADMIN_LOGIN_VERIFY");
+      } else if (data.requireOtp) {
+        setPendingUserId(data.userId);
+        setPendingEmail(data.email || loginEmail);
+        showNotification(data.message || "A 6-digit OTP code has been sent to your email address! 🔐");
+        changeView("USER_OTP_VERIFY");
       } else {
         showNotification("Welcome back! Login Successful! 🚀");
         onLoginSuccess(data.user);
       }
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyUserOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    if (!userOtp || userOtp.trim().length !== 6) {
+      setErrorMsg("Please enter the complete 6-digit OTP code.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: pendingUserId,
+          email: pendingEmail,
+          otp: userOtp.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "OTP verification failed");
+      }
+
+      showNotification("OTP Verified! Login Successful! 🚀");
+      onLoginSuccess(data.user);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+      setIsShaking(true);
+      setTimeout(() => setIsShaking(false), 500);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendUserOtp = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: pendingUserId,
+          email: pendingEmail
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resend OTP");
+      }
+
+      showNotification(data.message || "A fresh 6-digit OTP code has been sent to your email! 📩");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -541,6 +612,9 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
             <div className="feature">📊<br />Career Score</div>
             <div className="feature">⚡<br />Instant Result</div>
           </div>
+          <div style={{ marginTop: "20px", textAlign: "center", fontSize: "12px", color: "rgba(255, 255, 255, 0.6)", letterSpacing: "0.5px" }}>
+            Developed with ❤️ by <span style={{ color: "#fff", fontWeight: "bold" }}>Sayantik Chail</span>
+          </div>
         </div>
 
         {/* Right Form Side */}
@@ -585,6 +659,67 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                 </div>
                 <div className="switch">
                   Admin? <span onClick={() => changeView("ADMIN_SIGNUP")}>Create Admin</span>
+                </div>
+              </form>
+            )}
+
+            {view === "USER_OTP_VERIFY" && (
+              /* User OTP Verification Form */
+              <form onSubmit={handleVerifyUserOtp} id="userOtpVerify" className={isShaking ? "shake-form" : ""}>
+                <h2>Email OTP Verification</h2>
+                <div className="subtitle">Enter the 6-digit code sent to {pendingEmail || "your email"}</div>
+
+                {errorMsg && (
+                  <div className="login-error-alert">
+                    <span className="error-icon">⚠️</span>
+                    <span className="error-text">{errorMsg}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <input
+                    className="v-code"
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={userOtp}
+                    onChange={(e) => setUserOtp(e.target.value)}
+                    required
+                    style={{
+                      letterSpacing: "8px",
+                      textAlign: "center",
+                      fontSize: "24px",
+                      fontWeight: "bold"
+                    }}
+                  />
+                </div>
+                <button type="submit" className="form-btn">
+                  {loading ? "Verifying OTP..." : "Verify & Sign In 🔐"}
+                </button>
+                
+                <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <button 
+                    type="button" 
+                    onClick={handleResendUserOtp}
+                    disabled={loading}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      color: "var(--cyan)",
+                      padding: "8px 14px",
+                      borderRadius: "12px",
+                      fontSize: "12px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    📩 Resend OTP
+                  </button>
+                  <span 
+                    onClick={() => changeView("LOGIN")}
+                    style={{ color: "var(--muted)", fontSize: "12px", cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    ← Back to Login
+                  </span>
                 </div>
               </form>
             )}

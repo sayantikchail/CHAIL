@@ -50,26 +50,43 @@ cd path/to/extracted/chail-interview-platform
 ```
 
 #### Step 3: Configure Environment Variables
-Create a file named `.env` in the root directory and copy the contents of `.env.example` into it. Add your Gemini API key:
+Create a file named `.env` in the root directory and copy the contents of `.env.example` into it. You can set:
 ```env
 # Create .env file in the root
 PORT=3000
 NODE_ENV=development
 GEMINI_API_KEY=your_actual_gemini_api_key_here
+
+# TiDB Cloud MySQL (Pre-configured)
+TIDB_HOST=gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+TIDB_USER=4JfwUQJNVeMWMwH.root
+TIDB_PASSWORD=YSnA67L0zPtow1eP
+TIDB_DATABASE=test
+TIDB_PORT=4000
+
+# Optional: Email OTP (Leave blank to view OTP codes directly in terminal)
+SMTP_USER=
+SMTP_PASS=
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
 ```
-*(Replace `your_actual_gemini_api_key_here` with your real Google Gemini API Key)*
 
 #### Step 4: Install Dependencies
-Run the following command to download and install all required node modules:
+Run the following command in your terminal to install all required dependencies:
 ```bash
 npm install
 ```
 
-#### Step 5: Start the Development Server
-Launch the application with:
+#### Step 5: Start the Server
+You can start the development server using:
 ```bash
 npm run dev
 ```
+Or start the production server directly:
+```bash
+npm start
+```
+*(Note: `npm start` automatically builds the app if needed and serves both the API and frontend)*
 
 #### Step 6: Access the App
 Open your web browser and navigate to:
@@ -79,18 +96,25 @@ http://localhost:3000
 
 ---
 
-## 📦 How to Build for Production
+## ☁️ Deploying to Render.com
 
-If you wish to build the app for production deployment:
+This repository is pre-configured for seamless 1-click deployment on Render:
 
-1. **Build the assets and server bundle**:
-   ```bash
-   npm run build
-   ```
-2. **Start the production server**:
-   ```bash
-   npm run start
-   ```
+1. **Create a New Web Service** on Render connected to your Git repository.
+2. Set the following build settings:
+   - **Environment**: `Node`
+   - **Build Command**: `npm run build`
+   - **Start Command**: `npm start`
+3. Add your **Environment Variables** in the Render Dashboard:
+   - `GEMINI_API_KEY`: Your Google Gemini API Key
+   - `TIDB_HOST`: `gateway01.ap-southeast-1.prod.aws.tidbcloud.com`
+   - `TIDB_USER`: `4JfwUQJNVeMWMwH.root`
+   - `TIDB_PASSWORD`: `YSnA67L0zPtow1eP`
+   - `TIDB_DATABASE`: `test`
+   - `TIDB_PORT`: `4000`
+   - `SMTP_USER`: (Your Gmail/SMTP address for email OTP)
+   - `SMTP_PASS`: (Your Gmail App Password)
+4. Click **Deploy Web Service**. Render will build and launch the app seamlessly!
 
 ---
 *Created with ♥ by Sayantik Chail.*

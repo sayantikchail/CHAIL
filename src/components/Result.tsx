@@ -427,40 +427,72 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
         .result-page-wrapper .table-wrap {
           border-radius: 18px;
           overflow: hidden;
-          border: 1px solid rgba(255,255,255,.08);
+          border: 1px solid rgba(255,255,255,.12);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.30);
+          background: rgba(10, 16, 32, 0.6);
         }
 
         .result-page-wrapper table {
           width: 100%;
           border-collapse: collapse;
-          background: rgba(255,255,255,.03);
+          background: transparent;
+          table-layout: fixed;
         }
 
         .result-page-wrapper thead th {
-          background: rgba(255,255,255,.06);
-          color: #fff;
-          font-size: 13px;
-          padding: 12px 10px;
+          background: rgba(15, 30, 66, 0.75);
+          color: #93c5fd;
+          font-size: 12px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          padding: 16px 18px;
           text-align: left;
-          border-bottom: 1px solid rgba(255,255,255,.08);
+          border-bottom: 1px solid rgba(255,255,255,.14);
+        }
+
+        .result-page-wrapper tbody tr {
+          transition: background 0.25s ease;
+        }
+
+        .result-page-wrapper tbody tr:hover {
+          background: rgba(255, 255, 255, 0.05);
         }
 
         .result-page-wrapper tbody td {
-          padding: 12px 10px;
-          font-size: 13px;
-          color: #e8efff;
-          border-bottom: 1px solid rgba(255,255,255,.06);
+          padding: 16px 18px;
+          font-size: 13.5px;
+          color: #e2e8f0;
+          border-bottom: 1px solid rgba(255,255,255,.07);
+          vertical-align: middle;
+          word-break: break-word;
         }
 
         .result-page-wrapper tbody tr:last-child td {
           border-bottom: none;
         }
 
+        .result-page-wrapper .score-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 13px;
+          color: #ffffff;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+          min-width: 52px;
+          text-align: center;
+        }
+
         .result-page-wrapper .remarks-scroll {
-          max-height: 52px;
+          max-height: 85px;
           overflow-y: auto;
           padding-right: 6px;
-          line-height: 1.5;
+          line-height: 1.55;
+          font-size: 13px;
+          color: #cbd5e1;
           scrollbar-width: thin;
           scrollbar-color: rgba(34, 211, 238, 0.35) transparent;
         }
@@ -999,76 +1031,76 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
               </div>
 
               {/* Parametric Score Table */}
-              <div className="table-wrap animate-fade-in" style={{ margin: "10px 0" }}>
+              <div className="table-wrap animate-fade-in" style={{ margin: "14px 0" }}>
                 <table>
                   <thead>
                     <tr>
-                      <th style={{ width: "22%", padding: "10px" }}>Evaluation Parameter</th>
-                      <th style={{ width: "15%", textTransform: "uppercase", padding: "10px", textAlign: "center" }}>Score (100)</th>
-                      <th style={{ width: "15%", textTransform: "uppercase", padding: "10px", textAlign: "center" }}>Grade</th>
-                      <th style={{ width: "48%", padding: "10px" }}>Assessor Feedback & Remarks</th>
+                      <th style={{ width: "26%" }}>Evaluation Parameter</th>
+                      <th style={{ width: "14%", textTransform: "uppercase", textAlign: "center" }}>Score (100)</th>
+                      <th style={{ width: "12%", textTransform: "uppercase", textAlign: "center" }}>Grade</th>
+                      <th style={{ width: "48%" }}>Assessor Feedback & Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ padding: "10px" }}><b>Confidence & Poise</b></td>
-                      <td style={{ padding: "10px", textAlign: "center" }}>
+                      <td><b style={{ color: "#ffffff", fontSize: "14px" }}>Confidence & Poise</b></td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="score-pill" style={{ background: (report.scores?.confidence?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.confidence?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
                           {report.scores?.confidence?.score ?? 0}
                         </span>
                       </td>
-                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "15px", color: "#38bdf8" }}>
                         {(report.scores?.confidence?.score ?? 0) >= 90 ? "A+" : (report.scores?.confidence?.score ?? 0) >= 80 ? "A" : (report.scores?.confidence?.score ?? 0) >= 70 ? "B+" : (report.scores?.confidence?.score ?? 0) >= 60 ? "B" : (report.scores?.confidence?.score ?? 0) >= 50 ? "C" : "F"}
                       </td>
-                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.confidence?.remark ?? "No feedback provided."}</div></td>
+                      <td><div className="remarks-scroll">{report.scores?.confidence?.remark ?? "No feedback provided."}</div></td>
                     </tr>
                     <tr>
-                      <td style={{ padding: "10px" }}><b>Clarity & Structure</b></td>
-                      <td style={{ padding: "10px", textAlign: "center" }}>
+                      <td><b style={{ color: "#ffffff", fontSize: "14px" }}>Clarity & Structure</b></td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="score-pill" style={{ background: (report.scores?.clarity?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.clarity?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
                           {report.scores?.clarity?.score ?? 0}
                         </span>
                       </td>
-                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "15px", color: "#38bdf8" }}>
                         {(report.scores?.clarity?.score ?? 0) >= 90 ? "A+" : (report.scores?.clarity?.score ?? 0) >= 80 ? "A" : (report.scores?.clarity?.score ?? 0) >= 70 ? "B+" : (report.scores?.clarity?.score ?? 0) >= 60 ? "B" : (report.scores?.clarity?.score ?? 0) >= 50 ? "C" : "F"}
                       </td>
-                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.clarity?.remark ?? "No feedback provided."}</div></td>
+                      <td><div className="remarks-scroll">{report.scores?.clarity?.remark ?? "No feedback provided."}</div></td>
                     </tr>
                     <tr>
-                      <td style={{ padding: "10px" }}><b>Relevance & Context</b></td>
-                      <td style={{ padding: "10px", textAlign: "center" }}>
+                      <td><b style={{ color: "#ffffff", fontSize: "14px" }}>Relevance & Context</b></td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="score-pill" style={{ background: (report.scores?.relevance?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.relevance?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
                           {report.scores?.relevance?.score ?? 0}
                         </span>
                       </td>
-                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "15px", color: "#38bdf8" }}>
                         {(report.scores?.relevance?.score ?? 0) >= 90 ? "A+" : (report.scores?.relevance?.score ?? 0) >= 80 ? "A" : (report.scores?.relevance?.score ?? 0) >= 70 ? "B+" : (report.scores?.relevance?.score ?? 0) >= 60 ? "B" : (report.scores?.relevance?.score ?? 0) >= 50 ? "C" : "F"}
                       </td>
-                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.relevance?.remark ?? "No feedback provided."}</div></td>
+                      <td><div className="remarks-scroll">{report.scores?.relevance?.remark ?? "No feedback provided."}</div></td>
                     </tr>
                     <tr>
-                      <td style={{ padding: "10px" }}><b>Technical / Domain Depth</b></td>
-                      <td style={{ padding: "10px", textAlign: "center" }}>
+                      <td><b style={{ color: "#ffffff", fontSize: "14px" }}>Technical / Domain Depth</b></td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="score-pill" style={{ background: (report.scores?.technicalDepth?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.technicalDepth?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
                           {report.scores?.technicalDepth?.score ?? 0}
                         </span>
                       </td>
-                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "15px", color: "#38bdf8" }}>
                         {(report.scores?.technicalDepth?.score ?? 0) >= 90 ? "A+" : (report.scores?.technicalDepth?.score ?? 0) >= 80 ? "A" : (report.scores?.technicalDepth?.score ?? 0) >= 70 ? "B+" : (report.scores?.technicalDepth?.score ?? 0) >= 60 ? "B" : (report.scores?.technicalDepth?.score ?? 0) >= 50 ? "C" : "F"}
                       </td>
-                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.technicalDepth?.remark ?? "No feedback provided."}</div></td>
+                      <td><div className="remarks-scroll">{report.scores?.technicalDepth?.remark ?? "No feedback provided."}</div></td>
                     </tr>
                     <tr>
-                      <td style={{ padding: "10px" }}><b>Grammar & Vocabulary</b></td>
-                      <td style={{ padding: "10px", textAlign: "center" }}>
+                      <td><b style={{ color: "#ffffff", fontSize: "14px" }}>Grammar & Vocabulary</b></td>
+                      <td style={{ textAlign: "center" }}>
                         <span className="score-pill" style={{ background: (report.scores?.grammar?.score ?? 0) >= 80 ? "linear-gradient(90deg, #10b981, #059669)" : (report.scores?.grammar?.score ?? 0) >= 50 ? "linear-gradient(90deg, #f59e0b, #d97706)" : "linear-gradient(90deg, #ef4444, #dc2626)" }}>
                           {report.scores?.grammar?.score ?? 0}
                         </span>
                       </td>
-                      <td style={{ padding: "10px", textAlign: "center", fontWeight: "bold" }}>
+                      <td style={{ textAlign: "center", fontWeight: "bold", fontSize: "15px", color: "#38bdf8" }}>
                         {(report.scores?.grammar?.score ?? 0) >= 90 ? "A+" : (report.scores?.grammar?.score ?? 0) >= 80 ? "A" : (report.scores?.grammar?.score ?? 0) >= 70 ? "B+" : (report.scores?.grammar?.score ?? 0) >= 60 ? "B" : (report.scores?.grammar?.score ?? 0) >= 50 ? "C" : "F"}
                       </td>
-                      <td style={{ padding: "10px" }}><div className="remarks-scroll">{report.scores?.grammar?.remark ?? "No feedback provided."}</div></td>
+                      <td><div className="remarks-scroll">{report.scores?.grammar?.remark ?? "No feedback provided."}</div></td>
                     </tr>
                   </tbody>
                 </table>

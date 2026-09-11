@@ -1,9 +1,10 @@
 import express from "express";
 import path from "path";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import fs from "fs";
+import { GoogleGenAI } from "@google/genai";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -420,10 +421,20 @@ function translateQuestion(qObj: any, language: string): any {
 }
 
 const app = express();
-const PORT = parseInt(process.env.PORT || "3000", 10);
+// Safely resolve PORT: bind to 3000 by default and in AI Studio container, or to dynamic process.env.PORT when deployed (e.g. Render)
+const PORT = (process.env.PORT && process.env.PORT !== "8080") ? parseInt(process.env.PORT, 10) : 3000;
 
 // Parse JSON bodies (up to 15MB for base64 file uploads)
 app.use(express.json({ limit: "15mb" }));
+
+// Server Health Check Endpoint (For monitoring, Render, and smoke tests)
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "ChAIL Interview Platform",
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Initialize TiDB Cloud MySQL Connection Pool
 const pool = mysql.createPool({
@@ -435,7 +446,10 @@ const pool = mysql.createPool({
   ssl: { minVersion: "TLSv1.2", rejectUnauthorized: false },
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  connectTimeout: 8000,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
 
 // Bootstrap MySQL Database tables
@@ -453,9 +467,28 @@ async function initDB() {
         qualification VARCHAR(255),
         institution VARCHAR(255),
         stream VARCHAR(255),
-        is_admin TINYINT DEFAULT 0
+        is_admin TINYINT DEFAULT 0,
+        otp VARCHAR(20) DEFAULT NULL,
+        otp_expiry BIGINT DEFAULT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    // Ensure otp columns explicitly exist if table was already created
+    try {
+      await connection.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp VARCHAR(20) DEFAULT NULL;");
+    } catch (e) {
+      try {
+        await connection.query("ALTER TABLE users ADD COLUMN otp VARCHAR(20) DEFAULT NULL;");
+      } catch (err) {}
+    }
+
+    try {
+      await connection.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry BIGINT DEFAULT NULL;");
+    } catch (e) {
+      try {
+        await connection.query("ALTER TABLE users ADD COLUMN otp_expiry BIGINT DEFAULT NULL;");
+      } catch (err) {}
+    }
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS resumes (
@@ -493,55 +526,63 @@ async function initDB() {
     connection.release();
     console.log("MySQL Relational Database tables initialized successfully.");
   } catch (error: any) {
-    console.error("CRITICAL error initializing MySQL database:", error);
-    // Do not crash the process immediately, allow server to run and show connection errors
+    console.warn("TiDB Cloud MySQL database connection warning:", error.message || error);
+    console.warn("If testing locally without internet or behind a strict firewall, check port 4000 and network connection.");
   }
 }
 
 // Lazy initialization of Gemini Client
-let aiClient: GoogleGenerativeAI | null = null;
-function getGeminiClient() {
+let aiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will fallback to simulated data.");
       return null;
     }
-    aiClient = new GoogleGenerativeAI(apiKey);
+    aiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
+        }
+      }
+    });
   }
   return aiClient;
 }
 
-// Robust fallback Gemini generator helper to completely solve 404 model errors
+// Robust fallback Gemini generator helper with valid modern models
 async function generateContentWithFallback(
-  ai: GoogleGenerativeAI,
+  ai: GoogleGenAI,
   prompt: string | any[],
   isJson: boolean = false
 ): Promise<string> {
-  const modelsToTry = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro"];
+  const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-flash-latest"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
     try {
-      const model = ai.getGenerativeModel({ model: modelName });
-      const generationConfig = isJson ? { responseMimeType: "application/json" } : undefined;
-
-      let response;
+      let contents: any;
       if (Array.isArray(prompt)) {
-        response = await model.generateContent({
-          contents: prompt,
-          generationConfig
-        });
+        contents = prompt.map(item => typeof item === "string" ? { text: item } : item);
       } else {
-        response = await model.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig
-        });
+        contents = prompt;
       }
 
-      if (response && response.response) {
-        const text = response.response.text();
-        if (text) return text;
+      const config: any = {};
+      if (isJson) {
+        config.responseMimeType = "application/json";
+      }
+
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        ...(Object.keys(config).length > 0 ? { config } : {})
+      });
+
+      if (response && response.text) {
+        return response.text;
       }
     } catch (err: any) {
       console.warn(`Gemini generation failed with model ${modelName}:`, err.message || err);
@@ -550,6 +591,25 @@ async function generateContentWithFallback(
   }
 
   throw lastError || new Error("All Gemini model attempts failed.");
+}
+
+// Safe JSON parse helper to handle database rows and prevent invalid JSON errors
+function safeJsonParse<T>(data: any, fallback: T): T {
+  if (data === null || data === undefined) return fallback;
+  if (typeof data === "object") return data as T;
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    if (!trimmed || trimmed === "[object Object]" || trimmed === "undefined" || trimmed === "null") {
+      return fallback;
+    }
+    try {
+      return JSON.parse(trimmed) as T;
+    } catch (e) {
+      console.warn("Failed to parse JSON string from DB, using fallback:", trimmed);
+      return fallback;
+    }
+  }
+  return fallback;
 }
 
 // Helper to handle SQL queries safely (now asynchronous for MySQL)
@@ -604,7 +664,72 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// User Login
+// Nodemailer transporter helper
+function getMailer() {
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) {
+    return null;
+  }
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    secure: process.env.SMTP_PORT === "465",
+    auth: { user, pass }
+  });
+}
+
+// HTML Email Template for OTP Verification
+function generateOtpHtml(otp: string, recipientName: string) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SVU Authentication Code</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #1e293b; }
+    .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+    .header { background: linear-gradient(135deg, #0d235c 0%, #1e3a8a 100%); color: #ffffff; padding: 30px 25px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; color: #93c5fd; }
+    .content { padding: 35px 30px; text-align: center; }
+    .greeting { font-size: 16px; font-weight: 600; text-align: left; margin-bottom: 15px; color: #1e293b; }
+    .text { font-size: 14px; color: #475569; line-height: 1.6; text-align: left; margin-bottom: 25px; }
+    .otp-box { background: #f0fdf4; border: 2px dashed #16a34a; border-radius: 10px; padding: 20px; display: inline-block; margin: 15px 0 25px 0; width: 80%; }
+    .otp-code { font-size: 36px; font-weight: 800; color: #15803d; letter-spacing: 8px; font-family: 'Courier New', Courier, monospace; }
+    .expiry-text { font-size: 12px; color: #dc2626; font-weight: 600; margin-top: 8px; }
+    .footer { background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>स्वामी विवेकानंद विश्वविद्यालय</h1>
+      <p>Swami Vivekananda University - Academic Interview Portal</p>
+    </div>
+    <div class="content">
+      <div class="greeting">Hello ${recipientName || "Candidate"},</div>
+      <div class="text">
+        You have requested to sign in to your <strong>SVU Candidate Account</strong>. Please use the following 6-digit One-Time Password (OTP) code to verify your identity:
+      </div>
+      <div class="otp-box">
+        <div class="otp-code">${otp}</div>
+        <div class="expiry-text">⏰ Valid for 10 minutes only</div>
+      </div>
+      <div class="text" style="font-size: 12px; color: #64748b;">
+        If you did not initiate this login request, please change your account password immediately.
+      </div>
+    </div>
+    <div class="footer">
+      © Swami Vivekananda University (SVU) Examination Board<br/>
+      Official Academic Identity & Verification Engine
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// User Login (2-Step Email OTP Auth)
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -633,8 +758,83 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
+    // Generate 6-digit OTP code & 10-minute expiry time
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 10 * 60 * 1000;
+
+    // Save OTP to database
+    await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
+
+    // Send email using Nodemailer
+    const mailer = getMailer();
+    let emailSent = false;
+    if (mailer) {
+      try {
+        await mailer.sendMail({
+          from: `"SVU Academic Portal" <${process.env.SMTP_USER}>`,
+          to: user.email,
+          subject: `🔐 SVU Verification Code: ${otp}`,
+          html: generateOtpHtml(otp, user.name)
+        });
+        emailSent = true;
+      } catch (mErr: any) {
+        console.error("Failed to deliver OTP email via SMTP:", mErr.message || mErr);
+      }
+    }
+
+    console.log(`\n========================================\n[SVU OTP LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
+
     return res.status(200).json({
-      message: "Login successful!",
+      requireOtp: true,
+      userId: user.id,
+      email: user.email,
+      message: "A 6-digit verification code has been sent to your email address!"
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Database error: " + error.message });
+  }
+});
+
+// Verify Email OTP
+app.post("/api/auth/verify-otp", async (req, res) => {
+  const { userId, email, otp } = req.body;
+
+  if ((!userId && !email) || !otp) {
+    return res.status(400).json({ error: "User identifier and OTP code are required." });
+  }
+
+  try {
+    let query = "SELECT * FROM users WHERE id = ?";
+    let param = [userId];
+    if (!userId && email) {
+      query = "SELECT * FROM users WHERE email = ?";
+      param = [email];
+    }
+
+    const [rows]: any = await pool.execute(query, param);
+    const user = rows && rows.length > 0 ? rows[0] : null;
+
+    if (!user) {
+      return res.status(404).json({ error: "User account not found." });
+    }
+
+    const submittedOtp = String(otp).trim();
+    const storedOtp = user.otp ? String(user.otp).trim() : null;
+    const expiry = user.otp_expiry ? Number(user.otp_expiry) : 0;
+
+    if (!storedOtp || storedOtp !== submittedOtp) {
+      return res.status(400).json({ error: "Invalid OTP code. Please enter the correct 6-digit code or click Resend." });
+    }
+
+    if (Date.now() > expiry) {
+      return res.status(400).json({ error: "OTP code has expired. Please click 'Resend OTP' for a fresh code." });
+    }
+
+    // Clear OTP after successful verification
+    await pool.execute("UPDATE users SET otp = NULL, otp_expiry = NULL WHERE id = ?", [user.id]);
+
+    return res.status(200).json({
+      message: "OTP Verification successful! Welcome back.",
       user: {
         id: user.id,
         name: user.name,
@@ -642,11 +842,60 @@ app.post("/api/auth/login", async (req, res) => {
         qualification: user.qualification,
         institution: user.institution,
         stream: user.stream,
-        is_admin: 0
+        is_admin: user.is_admin || 0
       }
     });
   } catch (error: any) {
-    return res.status(500).json({ error: "Database error: " + error.message });
+    return res.status(500).json({ error: "Database error during OTP verification: " + error.message });
+  }
+});
+
+// Resend OTP Endpoint
+app.post("/api/auth/resend-otp", async (req, res) => {
+  const { userId, email } = req.body;
+
+  try {
+    let query = "SELECT * FROM users WHERE id = ?";
+    let param = [userId];
+    if (!userId && email) {
+      query = "SELECT * FROM users WHERE email = ?";
+      param = [email];
+    }
+
+    const [rows]: any = await pool.execute(query, param);
+    const user = rows && rows.length > 0 ? rows[0] : null;
+
+    if (!user) {
+      return res.status(404).json({ error: "User account not found." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 10 * 60 * 1000;
+    await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
+
+    const mailer = getMailer();
+    let emailSent = false;
+    if (mailer) {
+      try {
+        await mailer.sendMail({
+          from: `"SVU Academic Portal" <${process.env.SMTP_USER}>`,
+          to: user.email,
+          subject: `🔐 Resent SVU Verification Code: ${otp}`,
+          html: generateOtpHtml(otp, user.name)
+        });
+        emailSent = true;
+      } catch (mErr: any) {
+        console.error("Failed to resend OTP email via SMTP:", mErr.message || mErr);
+      }
+    }
+
+    console.log(`\n========================================\n[SVU OTP RESEND LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
+
+    return res.status(200).json({
+      message: "A fresh 6-digit verification code has been sent to your email!"
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to resend OTP: " + error.message });
   }
 });
 
@@ -763,7 +1012,18 @@ app.post("/api/auth/verify-admin-login", async (req, res) => {
 app.get("/api/assets/chail-signature", (_req, res) => {
   try {
     const signaturePath = path.join(process.cwd(), "src/assets/images/sayantik_chail_sig_1782897123530.jpg");
-    res.sendFile(signaturePath);
+    if (fs.existsSync(signaturePath)) {
+      return res.sendFile(signaturePath);
+    }
+    const altSignaturePath = path.join(process.cwd(), "src/assets/images/chail_signature_1782896086354.jpg");
+    if (fs.existsSync(altSignaturePath)) {
+      return res.sendFile(altSignaturePath);
+    }
+    // Elegant SVG signature fallback if static file not available
+    res.setHeader("Content-Type", "image/svg+xml");
+    return res.status(200).send(`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="48" viewBox="0 0 140 48">
+      <text x="10" y="32" font-family="'Brush Script MT', 'Dancing Script', cursive, sans-serif" font-size="24" font-weight="bold" fill="#0f172a">Sayantik Chail</text>
+    </svg>`);
   } catch (err: any) {
     res.status(500).send("Failed to load signature asset: " + err.message);
   }
@@ -1115,7 +1375,47 @@ app.post("/api/resume/analyze", async (req, res) => {
   }
 });
 
-// Question Generation based on skills and background
+// Check if user has an active resume saved in MySQL
+app.get("/api/resume/status/:userId", async (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid User ID." });
+  }
+  try {
+    const [rows]: any = await pool.execute("SELECT filename, skills, detailed_analysis FROM resumes WHERE user_id = ?", [userId]);
+    if (rows && rows.length > 0) {
+      const resume = rows[0];
+      const skills = safeJsonParse(resume.skills, []);
+      const analysis = safeJsonParse(resume.detailed_analysis, null);
+      return res.status(200).json({
+        hasResume: true,
+        filename: resume.filename || "resume.pdf",
+        skills,
+        analysis
+      });
+    } else {
+      return res.status(200).json({ hasResume: false });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ error: "Database error: " + error.message });
+  }
+});
+
+// Delete user's active resume from MySQL to allow uploading a new CV
+app.delete("/api/resume/:userId", async (req, res) => {
+  const userId = parseInt(req.params.userId, 10);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: "Invalid User ID." });
+  }
+  try {
+    await pool.execute("DELETE FROM resumes WHERE user_id = ?", [userId]);
+    return res.status(200).json({ message: "Resume deleted successfully. You can now upload a new CV." });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to delete resume: " + error.message });
+  }
+});
+
+// Question Generation based on skills and background with Progressive Difficulty
 app.post("/api/interview/questions", async (req, res) => {
   const { userId, language = "English" } = req.body;
   if (!userId) {
@@ -1126,6 +1426,50 @@ app.post("/api/interview/questions", async (req, res) => {
     const user = await getUserById(userId);
     const [resumeRows]: any = await pool.execute("SELECT * FROM resumes WHERE user_id = ?", [userId]);
     const resumeRecord = resumeRows && resumeRows.length > 0 ? resumeRows[0] : null;
+
+    // Check number of previous interviews for this user to calculate Progressive Difficulty Tier
+    let pastInterviewCount = 0;
+    try {
+      const [countRows]: any = await pool.execute(
+        "SELECT COUNT(*) as cnt FROM interviews WHERE user_id = ?",
+        [userId]
+      );
+      if (countRows && countRows.length > 0) {
+        pastInterviewCount = Number(countRows[0].cnt || 0);
+      }
+    } catch (cntErr) {
+      console.error("Failed to query past interview count:", cntErr);
+    }
+
+    // Determine Progressive Difficulty Tier
+    let difficultyTierLabel = "Standard Professional Level (Attempt 1-2)";
+    let difficultyRule = "";
+
+    if (pastInterviewCount <= 1) {
+      // 1st & 2nd Interview: Standard Professional level
+      difficultyTierLabel = `Standard Professional Level (Attempt ${pastInterviewCount + 1})`;
+      difficultyRule = `
+        PROGRESSIVE DIFFICULTY MANDATE: STAGE 1 - STANDARD PROFESSIONAL LEVEL
+        - This is candidate's session #${pastInterviewCount + 1}.
+        - Focus on fundamental core principles, practical domain applications, and standard industry scenarios derived from their resume.
+        - Questions should test solid foundational knowledge, core subjects, and project basics without excessive trickery.`;
+    } else if (pastInterviewCount <= 3) {
+      // 3rd & 4th Interview: Increased difficulty with deeper technical/domain scenarios
+      difficultyTierLabel = `Increased Difficulty & Deep Scenarios (Attempt ${pastInterviewCount + 1})`;
+      difficultyRule = `
+        PROGRESSIVE DIFFICULTY MANDATE: STAGE 2 - INCREASED TECHNICAL & DOMAIN DIFFICULTY
+        - This is candidate's session #${pastInterviewCount + 1}.
+        - Substantially increase complexity! Focus on deeper technical trade-offs, edge cases, system bottlenecks, architectural constraints, multi-step scenario problem-solving, and challenging follow-ups.
+        - Questions should require candidate to justify choices, evaluate trade-offs, and handle unexpected edge cases.`;
+    } else {
+      // 5+ Interview: Elite / Expert level high-pressure scenarios
+      difficultyTierLabel = `Elite / Expert Level High-Pressure Scenarios (Attempt ${pastInterviewCount + 1})`;
+      difficultyRule = `
+        PROGRESSIVE DIFFICULTY MANDATE: STAGE 3 - ELITE / EXPERT HIGH-PRESSURE LEVEL
+        - This is candidate's session #${pastInterviewCount + 1}.
+        - Maximum difficulty tier! Test high-pressure problem solving, critical multi-system failure recovery, extreme edge cases, complex legal/clinical/engineering trade-offs, and executive board-level architectural decisions.
+        - Require highly sophisticated, comprehensive responses matching top 1% industry standards.`;
+    }
     
     // Retrieve all unique previously asked questions for this user to avoid repetitions
     let pastQuestionsList: string[] = [];
@@ -1134,16 +1478,14 @@ app.post("/api/interview/questions", async (req, res) => {
       if (pastInterviews && pastInterviews.length > 0) {
         const uniqueQuestions = new Set<string>();
         pastInterviews.forEach((row: any) => {
-          try {
-            const list = JSON.parse(row.questions || "[]");
-            if (Array.isArray(list)) {
-              list.forEach((q: string) => {
-                if (q && q.trim()) {
-                  uniqueQuestions.add(q.trim());
-                }
-              });
-            }
-          } catch (e) {}
+          const list = safeJsonParse(row.questions, []);
+          if (Array.isArray(list)) {
+            list.forEach((q: string) => {
+              if (q && q.trim()) {
+                uniqueQuestions.add(q.trim());
+              }
+            });
+          }
         });
         pastQuestionsList = Array.from(uniqueQuestions);
       }
@@ -1164,17 +1506,13 @@ app.post("/api/interview/questions", async (req, res) => {
 
     let analysis: any = null;
     if (resumeRecord && resumeRecord.detailed_analysis) {
-      try {
-        analysis = JSON.parse(resumeRecord.detailed_analysis);
-      } catch (e) {
-        // Fallback parsed from basic fields
-      }
+      analysis = safeJsonParse(resumeRecord.detailed_analysis, null);
     }
 
     const qualification = user?.qualification || "B.Tech";
     const stream = user?.stream || "Computer Science";
-    const skillsList = resumeRecord ? JSON.parse(resumeRecord.skills) : [];
-    const skillsString = skillsList.map((s: any) => s.name).join(", ") || "General Technical Concepts, Software Engineering, Coding";
+    const skillsList = resumeRecord ? safeJsonParse(resumeRecord.skills, []) : [];
+    const skillsString = skillsList.map((s: any) => s.name || s).join(", ") || "General Technical Concepts, Software Engineering, Coding";
 
     const subjectsString = (analysis && analysis.keySubjects) ? analysis.keySubjects.join(", ") : "Database Management, Data Structures & Algorithms, Network Security";
     const projectDetails = (analysis && analysis.keyProjects && analysis.keyProjects.length > 0) 
@@ -1358,6 +1696,7 @@ app.post("/api/interview/questions", async (req, res) => {
         - Requested Assessment Language: ${language}
 
         Your goal is to thoroughly prepare this student for a competitive real-world job interview at an elite organization or firm matching their exact career profile (e.g. elite hospital or health institution for medical candidates, prestigious law firm or advocacy chamber for legal candidates, top-tier tech firm for engineering/computer science candidates, corporate business office for management, etc.).
+        ${difficultyRule}
         ${pastQuestionsRule}
         
         CRITICAL RESUME-ONLY SCOPE RULE:
@@ -1881,13 +2220,21 @@ app.get("/api/interview/latest/:userId", async (req, res) => {
 
     const user = await getUserById(userId);
 
-    // Parse DB strings back to original array formats
-    const scores = JSON.parse(interview.scores);
-    const strengths = JSON.parse(interview.strengths);
-    const devAreas = JSON.parse(interview.development_areas);
-    const feedback = JSON.parse(interview.feedback);
-    const questions = JSON.parse(interview.questions || "[]");
-    const answers = JSON.parse(interview.answers || "[]");
+    // Parse DB strings safely back to original array/object formats
+    const defaultScores = {
+      confidence: { score: 0, remark: "No data" },
+      clarity: { score: 0, remark: "No data" },
+      relevance: { score: 0, remark: "No data" },
+      technicalDepth: { score: 0, remark: "No data" },
+      grammar: { score: 0, remark: "No data" }
+    };
+    const parsedScores = safeJsonParse(interview.scores, {});
+    const scores = { ...defaultScores, ...parsedScores };
+    const strengths = safeJsonParse(interview.strengths, []);
+    const devAreas = safeJsonParse(interview.development_areas, []);
+    const feedback = safeJsonParse(interview.feedback, []);
+    const questions = safeJsonParse(interview.questions, []);
+    const answers = safeJsonParse(interview.answers, []);
 
     return res.status(200).json({
       interviewId: `INT-INT-SVU${interview.id}`,
@@ -1928,12 +2275,20 @@ app.get("/api/interview/history/:userId", async (req, res) => {
     const user = await getUserById(userId);
 
     const history = interviews.map((interview: any) => {
-      const scores = JSON.parse(interview.scores || "{}");
-      const strengths = JSON.parse(interview.strengths || "[]");
-      const devAreas = JSON.parse(interview.development_areas || "[]");
-      const feedback = JSON.parse(interview.feedback || "[]");
-      const questions = JSON.parse(interview.questions || "[]");
-      const answers = JSON.parse(interview.answers || "[]");
+      const defaultScores = {
+        confidence: { score: 0, remark: "No data" },
+        clarity: { score: 0, remark: "No data" },
+        relevance: { score: 0, remark: "No data" },
+        technicalDepth: { score: 0, remark: "No data" },
+        grammar: { score: 0, remark: "No data" }
+      };
+      const parsedScores = safeJsonParse(interview.scores, {});
+      const scores = { ...defaultScores, ...parsedScores };
+      const strengths = safeJsonParse(interview.strengths, []);
+      const devAreas = safeJsonParse(interview.development_areas, []);
+      const feedback = safeJsonParse(interview.feedback, []);
+      const questions = safeJsonParse(interview.questions, []);
+      const answers = safeJsonParse(interview.answers, []);
 
       return {
         id: interview.id,
@@ -1991,9 +2346,23 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     }
 
     const user = await getUserById(userId);
-    const scores = JSON.parse(interview.scores);
-    const strengths = JSON.parse(interview.strengths) as string[];
-    const devAreas = JSON.parse(interview.development_areas) as string[];
+    const defaultScores = {
+      confidence: { score: 0, remark: "No data" },
+      clarity: { score: 0, remark: "No data" },
+      relevance: { score: 0, remark: "No data" },
+      technicalDepth: { score: 0, remark: "No data" },
+      grammar: { score: 0, remark: "No data" }
+    };
+    const parsedScores = safeJsonParse(interview.scores, {});
+    const scores = { ...defaultScores, ...parsedScores };
+    if (!scores.confidence) scores.confidence = defaultScores.confidence;
+    if (!scores.clarity) scores.clarity = defaultScores.clarity;
+    if (!scores.relevance) scores.relevance = defaultScores.relevance;
+    if (!scores.technicalDepth) scores.technicalDepth = defaultScores.technicalDepth;
+    if (!scores.grammar) scores.grammar = defaultScores.grammar;
+
+    const strengths = safeJsonParse(interview.strengths, []) as string[];
+    const devAreas = safeJsonParse(interview.development_areas, []) as string[];
 
     const getGrade = (score: number): string => {
       if (score >= 90) return "A+";
@@ -2572,22 +2941,59 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
 // ================= VITE OR STATIC SETUP =================
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  await initDB();
+
+  // Detect whether running in production mode (bundled dist or explicit production flag)
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    (typeof __filename !== "undefined" && __filename.endsWith(".cjs")) ||
+    (process.argv[1] && process.argv[1].includes("dist"));
+
+  if (!isProduction) {
+    // Dynamic import to keep production bundle lean and prevent vite dependency errors in production
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
+    app.use("*", async (req, res, next) => {
+      if (req.originalUrl.startsWith("/api/")) {
+        return res.status(404).json({ error: "API endpoint not found", path: req.originalUrl });
+      }
+      try {
+        const url = req.originalUrl;
+        const indexPath = path.resolve(process.cwd(), "index.html");
+        if (fs.existsSync(indexPath)) {
+          let template = fs.readFileSync(indexPath, "utf-8");
+          template = await vite.transformIndexHtml(url, template);
+          res.status(200).set({ "Content-Type": "text/html" }).end(template);
+        } else {
+          next();
+        }
+      } catch (e) {
+        if (vite) vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get("*", (req, res) => {
+      if (req.originalUrl.startsWith("/api/")) {
+        return res.status(404).json({ error: "API endpoint not found", path: req.originalUrl });
+      }
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send("Application assets not found. Please run 'npm run build' first.");
+      }
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`ChAIL Server running successfully on port ${PORT}`);
+    console.log(`ChAIL Server running successfully on port ${PORT} [Mode: ${isProduction ? "Production" : "Development"}]`);
   });
 }
 

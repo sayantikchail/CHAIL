@@ -103,14 +103,66 @@ export default function Dashboard({ user, onLogout, onStartInterview, showNotifi
     setInstitution(user.institution);
   }, [user]);
 
-  // Load history
+  // Load history and active resume status
   useEffect(() => {
     fetchHistory();
     // Enforce sequential workflow on load: clear language and questions
     setSelectedLanguage("");
     setPreGeneratedQuestions([]);
     localStorage.removeItem("chail_selected_language");
+
+    const checkStoredResume = async () => {
+      if (!currentProfile.id) return;
+      try {
+        const res = await fetch(`/api/resume/status/${currentProfile.id}`);
+        const data = await res.json();
+        if (res.ok && data.hasResume) {
+          setIsAnalyzed(true);
+          setDetectedSkills(data.skills || []);
+          setSelectedFile({ name: data.filename || "resume.pdf" } as File);
+          if (data.analysis) {
+            const s = data.analysis.detectedStream || currentProfile.stream;
+            const q = data.analysis.detectedQualification || currentProfile.qualification;
+            const inst = data.analysis.detectedInstitution || currentProfile.institution;
+            setStream(s);
+            setQualification(q);
+            setInstitution(inst);
+            setCurrentProfile(prev => ({ ...prev, stream: s, qualification: q, institution: inst }));
+          }
+        }
+      } catch (err) {
+        console.error("Error checking stored resume status:", err);
+      }
+    };
+
+    checkStoredResume();
   }, [currentProfile.id]);
+
+  const handleDeleteResume = async () => {
+    if (!window.confirm("Are you sure you want to update/change your resume? This will clear your current resume record and allow you to upload a new CV.")) {
+      return;
+    }
+    try {
+      setShowOverlay(true);
+      setOverlayText("Clearing saved resume & resetting calibration... 🔄");
+      const res = await fetch(`/api/resume/${currentProfile.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete resume");
+      }
+      setIsAnalyzed(false);
+      setSelectedFile(null);
+      setDetectedSkills([]);
+      setSelectedLanguage("");
+      setPreGeneratedQuestions([]);
+      localStorage.removeItem("chail_selected_language");
+      showNotification("Resume reset successfully! You can now upload a new CV. 📄");
+    } catch (err: any) {
+      showNotification("❌ Failed to reset resume: " + err.message);
+    } finally {
+      setShowOverlay(false);
+    }
+  };
 
   const processFile = (file: File) => {
     setResumeValidationError(null);
@@ -1307,6 +1359,9 @@ export default function Dashboard({ user, onLogout, onStartInterview, showNotifi
             <div className="status-box">🎯 Interview Ready</div>
             <div className="status-box">📊 Smart Result</div>
           </div>
+          <div style={{ marginTop: "20px", textAlign: "center", fontSize: "12px", color: "rgba(255, 255, 255, 0.6)", letterSpacing: "0.5px" }}>
+            Developed with ❤️ by <span style={{ color: "#fff", fontWeight: "bold" }}>Sayantik Chail</span>
+          </div>
         </div>
 
         {/* Right Dashboard Area */}
@@ -1500,25 +1555,25 @@ export default function Dashboard({ user, onLogout, onStartInterview, showNotifi
                             </div>
                           </div>
                         </div>
-                      ) : selectedFile ? (
+                      ) : (selectedFile || isAnalyzed) ? (
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                             <div style={{ 
-                              fontSize: "44px", 
-                              marginBottom: "8px",
+                              fontSize: "40px", 
+                              marginBottom: "6px",
                               filter: "drop-shadow(0 4px 12px rgba(34,197,94,0.3))"
                             }}>
-                              🎉
+                              🔒
                             </div>
                             
                             <h3 style={{ 
-                              fontSize: "18px", 
+                              fontSize: "17px", 
                               fontWeight: "800", 
                               color: "#4ade80", 
-                              marginBottom: "6px",
+                              marginBottom: "4px",
                               letterSpacing: "0.5px",
                               textShadow: "0 2px 10px rgba(34,197,94,0.15)"
                             }}>
-                              Resume Uploaded Successfully!
+                              Resume Active & Locked in System
                             </h3>
                             
                             <div style={{
@@ -1537,35 +1592,35 @@ export default function Dashboard({ user, onLogout, onStartInterview, showNotifi
                               wordBreak: "break-all"
                             }}>
                               <span>📄</span>
-                              <span>{selectedFile.name}</span>
+                              <span>{selectedFile?.name || "Active CV Record"}</span>
                             </div>
 
-                            <div className="file-upload" style={{ margin: "10px 0 0 0" }}>
-                              <div 
-                                className="upload-btn"
+                            <div style={{ margin: "10px 0 0 0" }}>
+                              <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  fileInputRef.current?.click();
+                                  handleDeleteResume();
                                 }}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",
                                   justifyContent: "center",
                                   gap: "6px",
-                                  borderRadius: "10px",
-                                  padding: "8px 18px",
-                                  fontSize: "12px",
-                                  fontWeight: "700",
+                                  borderRadius: "8px",
+                                  padding: "6px 14px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
                                   cursor: "pointer",
-                                  color: "#fff",
-                                  background: "rgba(255, 255, 255, 0.12)",
-                                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                                  color: "rgba(255,255,255,0.7)",
+                                  background: "rgba(255, 255, 255, 0.06)",
+                                  border: "1px solid rgba(255, 255, 255, 0.12)",
                                   userSelect: "none",
-                                  transition: "all 0.25s ease"
+                                  transition: "all 0.2s ease"
                                 }}
                               >
-                                🔄 Change Resume
-                              </div>
+                                🔄 Update / Change Resume
+                              </button>
                             </div>
                           </div>
                         ) : (
