@@ -7,16 +7,12 @@ interface LoginProps {
 }
 
 export default function Login({ onLoginSuccess, showNotification }: LoginProps) {
-  const [view, setView] = useState<"LOGIN" | "SIGNUP" | "ADMIN_SIGNUP" | "ADMIN_SIGNUP_VERIFY" | "ADMIN_LOGIN_VERIFY" | "USER_OTP_VERIFY">("LOGIN");
+  const [view, setView] = useState<"LOGIN" | "SIGNUP" | "ADMIN_SIGNUP" | "ADMIN_SIGNUP_VERIFY" | "ADMIN_LOGIN_VERIFY">("LOGIN");
   const [loading, setLoading] = useState(false);
 
   // Form states
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-
-  const [userOtp, setUserOtp] = useState("");
-  const [pendingUserId, setPendingUserId] = useState<number | null>(null);
-  const [pendingEmail, setPendingEmail] = useState<string>("");
 
   const [fullName, setFullName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
@@ -30,13 +26,11 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isShaking, setIsShaking] = useState(false);
   const [admin2FaError, setAdmin2FaError] = useState<string | null>(null);
-  const [smtpWarning, setSmtpWarning] = useState<string | null>(null);
 
   const changeView = (v: typeof view) => {
     setView(v);
     setErrorMsg(null);
     setAdmin2FaError(null);
-    setSmtpWarning(null);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -63,88 +57,10 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
       if (data.needs2FA) {
         showNotification("Admin detected. Loading 2FA Verification... 🔐");
         changeView("ADMIN_LOGIN_VERIFY");
-      } else if (data.requireOtp) {
-        setPendingUserId(data.userId);
-        setPendingEmail(data.email || loginEmail);
-        if (data.emailSent === false) {
-          setSmtpWarning(data.smtpError || "Email delivery failed via SMTP. Please check Render Dashboard > Logs for your 6-digit OTP code.");
-        } else {
-          setSmtpWarning(null);
-        }
-        showNotification(data.message || "A 6-digit OTP code has been sent to your email address! 🔐");
-        changeView("USER_OTP_VERIFY");
       } else {
         showNotification("Welcome back! Login Successful! 🚀");
         onLoginSuccess(data.user);
       }
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyUserOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    if (!userOtp || userOtp.trim().length !== 6) {
-      setErrorMsg("Please enter the complete 6-digit OTP code.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: pendingUserId,
-          email: pendingEmail,
-          otp: userOtp.trim()
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "OTP verification failed");
-      }
-
-      showNotification("OTP Verified! Login Successful! 🚀");
-      onLoginSuccess(data.user);
-    } catch (err: any) {
-      setErrorMsg(err.message);
-      setIsShaking(true);
-      setTimeout(() => setIsShaking(false), 500);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendUserOtp = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/auth/resend-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: pendingUserId,
-          email: pendingEmail
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to resend OTP");
-      }
-
-      if (data.emailSent === false) {
-        setSmtpWarning(data.smtpError || "Email delivery failed via SMTP. Please check Render Dashboard > Logs for your 6-digit OTP code.");
-      } else {
-        setSmtpWarning(null);
-      }
-
-      showNotification(data.message || "A fresh 6-digit OTP code has been sent to your email! 📩");
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -672,86 +588,6 @@ export default function Login({ onLoginSuccess, showNotification }: LoginProps) 
                 </div>
                 <div className="switch">
                   Admin? <span onClick={() => changeView("ADMIN_SIGNUP")}>Create Admin</span>
-                </div>
-              </form>
-            )}
-
-            {view === "USER_OTP_VERIFY" && (
-              /* User OTP Verification Form */
-              <form onSubmit={handleVerifyUserOtp} id="userOtpVerify" className={isShaking ? "shake-form" : ""}>
-                <h2>Email OTP Verification</h2>
-                <div className="subtitle">Enter the 6-digit code sent to {pendingEmail || "your email"}</div>
-
-                {smtpWarning && (
-                  <div style={{
-                    background: "rgba(245, 158, 11, 0.12)",
-                    border: "1px dashed rgba(245, 158, 11, 0.6)",
-                    borderRadius: "14px",
-                    padding: "12px 14px",
-                    color: "#fef08a",
-                    fontSize: "12px",
-                    lineHeight: "1.5",
-                    marginBottom: "16px",
-                    textAlign: "left"
-                  }}>
-                    <strong style={{ color: "#f59e0b" }}>⚠️ Email Dispatch Notice:</strong> {smtpWarning}
-                    <div style={{ marginTop: "6px", fontSize: "11px", color: "#e2e8f0" }}>
-                      💡 If your Gmail App Password failed on Render, you can view your active 6-digit OTP directly inside your <strong>Render Dashboard &gt; Logs</strong>!
-                    </div>
-                  </div>
-                )}
-
-                {errorMsg && (
-                  <div className="login-error-alert">
-                    <span className="error-icon">⚠️</span>
-                    <span className="error-text">{errorMsg}</span>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <input
-                    className="v-code"
-                    type="text"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={userOtp}
-                    onChange={(e) => setUserOtp(e.target.value)}
-                    required
-                    style={{
-                      letterSpacing: "8px",
-                      textAlign: "center",
-                      fontSize: "24px",
-                      fontWeight: "bold"
-                    }}
-                  />
-                </div>
-                <button type="submit" className="form-btn">
-                  {loading ? "Verifying OTP..." : "Verify & Sign In 🔐"}
-                </button>
-                
-                <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <button 
-                    type="button" 
-                    onClick={handleResendUserOtp}
-                    disabled={loading}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      color: "var(--cyan)",
-                      padding: "8px 14px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    📩 Resend OTP
-                  </button>
-                  <span 
-                    onClick={() => changeView("LOGIN")}
-                    style={{ color: "var(--muted)", fontSize: "12px", cursor: "pointer", textDecoration: "underline" }}
-                  >
-                    ← Back to Login
-                  </span>
                 </div>
               </form>
             )}

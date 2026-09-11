@@ -1,17 +1,9 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import dns from "dns";
 import { GoogleGenAI } from "@google/genai";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
-import nodemailer from "nodemailer";
-
-// CRITICAL FOR RENDER/CLOUD: Force Node.js to resolve IPv4 addresses first.
-// Render does NOT support outbound IPv6 (which causes "connect ENETUNREACH 2607:f8b0:...")
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder("ipv4first");
-}
 
 dotenv.config();
 
@@ -474,28 +466,9 @@ async function initDB() {
         qualification VARCHAR(255),
         institution VARCHAR(255),
         stream VARCHAR(255),
-        is_admin TINYINT DEFAULT 0,
-        otp VARCHAR(20) DEFAULT NULL,
-        otp_expiry BIGINT DEFAULT NULL
+        is_admin TINYINT DEFAULT 0
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-
-    // Ensure otp columns explicitly exist if table was already created
-    try {
-      await connection.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp VARCHAR(20) DEFAULT NULL;");
-    } catch (e) {
-      try {
-        await connection.query("ALTER TABLE users ADD COLUMN otp VARCHAR(20) DEFAULT NULL;");
-      } catch (err) {}
-    }
-
-    try {
-      await connection.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry BIGINT DEFAULT NULL;");
-    } catch (e) {
-      try {
-        await connection.query("ALTER TABLE users ADD COLUMN otp_expiry BIGINT DEFAULT NULL;");
-      } catch (err) {}
-    }
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS resumes (
@@ -671,237 +644,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Unified OTP Email Sender with Dual Transport (Port 465 SSL & Port 587 STARTTLS) & Forced IPv4
-async function sendOtpEmailViaDualTransport(to: string, subject: string, html: string): Promise<{ success: boolean; error?: string }> {
-  const rawUser = process.env.SMTP_USER || "";
-  const rawPass = process.env.SMTP_PASS || "";
-
-  let user = rawUser.replace(/^["']|["']$/g, "").trim();
-  if (user.endsWith(".gmail.com") && !user.includes("@")) {
-    user = user.replace(/\.gmail\.com$/, "@gmail.com");
-  }
-  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
-
-  if (!user || !pass) {
-    return { success: false, error: "SMTP_USER or SMTP_PASS environment variable is missing on Render." };
-  }
-
-  const senderEmail = user || "svu-portal@education.ac.in";
-  const from = `"SVU Academic Portal" <${senderEmail}>`;
-
-  // Attempt 1: Port 465 SSL with Forced IPv4 (family: 4)
-  try {
-    const transporter465 = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user, pass },
-      family: 4 as any,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-      tls: { rejectUnauthorized: false }
-    });
-    await transporter465.sendMail({ from, to, subject, html });
-    return { success: true };
-  } catch (err465: any) {
-    console.warn(`[SMTP Warning] Port 465 failed (${err465.message}). Retrying on Port 587 STARTTLS...`);
-  }
-
-  // Attempt 2: Port 587 STARTTLS with Forced IPv4 (family: 4)
-  try {
-    const transporter587 = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: { user, pass },
-      family: 4 as any,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-      tls: { rejectUnauthorized: false }
-    });
-    await transporter587.sendMail({ from, to, subject, html });
-    return { success: true };
-  } catch (err587: any) {
-    console.error(`[SMTP Error] Both Port 465 and Port 587 failed:`, err587.message);
-    return { success: false, error: err587.message };
-  }
-}
-
-// Nodemailer transporter helper with robust Render & Gmail compatibility
-function getMailer() {
-  const rawUser = process.env.SMTP_USER || "";
-  const rawPass = process.env.SMTP_PASS || "";
-
-  // Strip leading/trailing quotes often added by copy-pasting into Render environment variables
-  let user = rawUser.replace(/^["']|["']$/g, "").trim();
-  if (user.endsWith(".gmail.com") && !user.includes("@")) {
-    user = user.replace(/\.gmail\.com$/, "@gmail.com");
-  }
-  // Strip quotes AND all spaces (Google App Passwords are 16 letters with spaces like "abcd efgh ijkl mnop")
-  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
-
-  if (!user || !pass) {
-    return null;
-  }
-
-  const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const host = rawHost.replace(/^["']|["']$/g, "").trim();
-  const isGmail = host.toLowerCase().includes("gmail") || user.toLowerCase().includes("@gmail.com");
-
-  if (isGmail) {
-    // Explicit port 465 SSL with forced IPv4 (family: 4) is guaranteed to work reliably on Render
-    return nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user, pass },
-      family: 4 as any,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-
-  const port = parseInt((process.env.SMTP_PORT || "587").replace(/^["']|["']$/g, "").trim(), 10);
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    family: 4 as any,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
-}
-
-// Diagnostic endpoint to verify SMTP credentials and server connectivity
-app.get("/api/auth/test-smtp", async (_req, res) => {
-  const rawUser = process.env.SMTP_USER || "";
-  const rawPass = process.env.SMTP_PASS || "";
-  let user = rawUser.replace(/^["']|["']$/g, "").trim();
-  if (user.endsWith(".gmail.com") && !user.includes("@")) {
-    user = user.replace(/\.gmail\.com$/, "@gmail.com");
-  }
-  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
-
-  if (!user || !pass) {
-    return res.status(200).json({
-      configured: false,
-      message: "SMTP_USER or SMTP_PASS environment variables are not set on Render. Please configure them in Render Dashboard > Environment."
-    });
-  }
-
-  try {
-    const transporter465 = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user, pass },
-      family: 4 as any,
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      tls: { rejectUnauthorized: false }
-    });
-    await transporter465.verify();
-    return res.status(200).json({
-      configured: true,
-      verified: true,
-      user,
-      method: "Gmail Port 465 SSL (IPv4)",
-      message: "SMTP credentials verified successfully! Email dispatch is active."
-    });
-  } catch (err465: any) {
-    try {
-      const transporter587 = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false,
-        auth: { user, pass },
-        family: 4 as any,
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        tls: { rejectUnauthorized: false }
-      });
-      await transporter587.verify();
-      return res.status(200).json({
-        configured: true,
-        verified: true,
-        user,
-        method: "Gmail Port 587 STARTTLS (IPv4)",
-        message: "SMTP credentials verified successfully! Email dispatch is active."
-      });
-    } catch (err587: any) {
-      return res.status(200).json({
-        configured: true,
-        verified: false,
-        user,
-        error: `Port 465 (${err465.message}) | Port 587 (${err587.message})`,
-        tip: "Ensure you are using a 16-character Google App Password from myaccount.google.com/apppasswords."
-      });
-    }
-  }
-});
-
-// HTML Email Template for OTP Verification
-function generateOtpHtml(otp: string, recipientName: string) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>SVU Authentication Code</title>
-  <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #1e293b; }
-    .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #0d235c 0%, #1e3a8a 100%); color: #ffffff; padding: 30px 25px; text-align: center; }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
-    .header p { margin: 6px 0 0 0; font-size: 13px; color: #93c5fd; }
-    .content { padding: 35px 30px; text-align: center; }
-    .greeting { font-size: 16px; font-weight: 600; text-align: left; margin-bottom: 15px; color: #1e293b; }
-    .text { font-size: 14px; color: #475569; line-height: 1.6; text-align: left; margin-bottom: 25px; }
-    .otp-box { background: #f0fdf4; border: 2px dashed #16a34a; border-radius: 10px; padding: 20px; display: inline-block; margin: 15px 0 25px 0; width: 80%; }
-    .otp-code { font-size: 36px; font-weight: 800; color: #15803d; letter-spacing: 8px; font-family: 'Courier New', Courier, monospace; }
-    .expiry-text { font-size: 12px; color: #dc2626; font-weight: 600; margin-top: 8px; }
-    .footer { background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>स्वामी विवेकानंद विश्वविद्यालय</h1>
-      <p>Swami Vivekananda University - Academic Interview Portal</p>
-    </div>
-    <div class="content">
-      <div class="greeting">Hello ${recipientName || "Candidate"},</div>
-      <div class="text">
-        You have requested to sign in to your <strong>SVU Candidate Account</strong>. Please use the following 6-digit One-Time Password (OTP) code to verify your identity:
-      </div>
-      <div class="otp-box">
-        <div class="otp-code">${otp}</div>
-        <div class="expiry-text">⏰ Valid for 10 minutes only</div>
-      </div>
-      <div class="text" style="font-size: 12px; color: #64748b;">
-        If you did not initiate this login request, please change your account password immediately.
-      </div>
-    </div>
-    <div class="footer">
-      © Swami Vivekananda University (SVU) Examination Board<br/>
-      Official Academic Identity & Verification Engine
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-// User Login (2-Step Email OTP Auth)
+// User Login (Direct Authentication)
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -930,85 +673,9 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    // Generate 6-digit OTP code & 10-minute expiry time
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = Date.now() + 10 * 60 * 1000;
-
-    // Save OTP to database
-    await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
-
-    // Send email using Unified Dual-Transport Nodemailer (Port 465 SSL & Port 587 TLS with forced IPv4)
-    const emailResult = await sendOtpEmailViaDualTransport(
-      user.email,
-      `🔐 SVU Verification Code: ${otp}`,
-      generateOtpHtml(otp, user.name)
-    );
-    const emailSent = emailResult.success;
-    const smtpError = emailResult.error || null;
-    if (emailSent) {
-      console.log(`[SMTP SUCCESS] OTP email successfully delivered to ${user.email}`);
-    } else {
-      console.error(`[SMTP ERROR on Render] Failed to deliver OTP email to ${user.email}:`, smtpError);
-      console.error("Tip: Ensure your 16-character Google App Password has no quotes or spaces in Render environment.");
-    }
-
-    console.log(`\n========================================\n[SVU OTP LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
-
+    // Direct Login for Candidates (Instant access without Render SMTP blocking)
     return res.status(200).json({
-      requireOtp: true,
-      userId: user.id,
-      email: user.email,
-      emailSent,
-      smtpError,
-      message: emailSent
-        ? "A 6-digit verification code has been sent to your email address!"
-        : "OTP code generated! (SMTP delivery warning: " + (smtpError || "Check Render logs") + ")"
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: "Database error: " + error.message });
-  }
-});
-
-// Verify Email OTP
-app.post("/api/auth/verify-otp", async (req, res) => {
-  const { userId, email, otp } = req.body;
-
-  if ((!userId && !email) || !otp) {
-    return res.status(400).json({ error: "User identifier and OTP code are required." });
-  }
-
-  try {
-    let query = "SELECT * FROM users WHERE id = ?";
-    let param = [userId];
-    if (!userId && email) {
-      query = "SELECT * FROM users WHERE email = ?";
-      param = [email];
-    }
-
-    const [rows]: any = await pool.execute(query, param);
-    const user = rows && rows.length > 0 ? rows[0] : null;
-
-    if (!user) {
-      return res.status(404).json({ error: "User account not found." });
-    }
-
-    const submittedOtp = String(otp).trim();
-    const storedOtp = user.otp ? String(user.otp).trim() : null;
-    const expiry = user.otp_expiry ? Number(user.otp_expiry) : 0;
-
-    if (!storedOtp || storedOtp !== submittedOtp) {
-      return res.status(400).json({ error: "Invalid OTP code. Please enter the correct 6-digit code or click Resend." });
-    }
-
-    if (Date.now() > expiry) {
-      return res.status(400).json({ error: "OTP code has expired. Please click 'Resend OTP' for a fresh code." });
-    }
-
-    // Clear OTP after successful verification
-    await pool.execute("UPDATE users SET otp = NULL, otp_expiry = NULL WHERE id = ?", [user.id]);
-
-    return res.status(200).json({
-      message: "OTP Verification successful! Welcome back.",
+      message: "Login successful! Welcome back.",
       user: {
         id: user.id,
         name: user.name,
@@ -1020,57 +687,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
       }
     });
   } catch (error: any) {
-    return res.status(500).json({ error: "Database error during OTP verification: " + error.message });
-  }
-});
-
-// Resend OTP Endpoint
-app.post("/api/auth/resend-otp", async (req, res) => {
-  const { userId, email } = req.body;
-
-  try {
-    let query = "SELECT * FROM users WHERE id = ?";
-    let param = [userId];
-    if (!userId && email) {
-      query = "SELECT * FROM users WHERE email = ?";
-      param = [email];
-    }
-
-    const [rows]: any = await pool.execute(query, param);
-    const user = rows && rows.length > 0 ? rows[0] : null;
-
-    if (!user) {
-      return res.status(404).json({ error: "User account not found." });
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = Date.now() + 10 * 60 * 1000;
-    await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
-
-    const emailResult = await sendOtpEmailViaDualTransport(
-      user.email,
-      `🔐 Resent SVU Verification Code: ${otp}`,
-      generateOtpHtml(otp, user.name)
-    );
-    const emailSent = emailResult.success;
-    const smtpError = emailResult.error || null;
-    if (emailSent) {
-      console.log(`[SMTP SUCCESS] Resent OTP email successfully delivered to ${user.email}`);
-    } else {
-      console.error(`[SMTP ERROR on Render] Failed to resend OTP email to ${user.email}:`, smtpError);
-    }
-
-    console.log(`\n========================================\n[SVU OTP RESEND LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
-
-    return res.status(200).json({
-      emailSent,
-      smtpError,
-      message: emailSent
-        ? "A fresh 6-digit verification code has been sent to your email!"
-        : "Fresh OTP generated! (Delivery status: " + (smtpError || "Check Render logs") + ")"
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: "Failed to resend OTP: " + error.message });
+    return res.status(500).json({ error: "Database error: " + error.message });
   }
 });
 
