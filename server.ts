@@ -1,10 +1,17 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import dns from "dns";
 import { GoogleGenAI } from "@google/genai";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import nodemailer from "nodemailer";
+
+// CRITICAL FOR RENDER/CLOUD: Force Node.js to resolve IPv4 addresses first.
+// Render does NOT support outbound IPv6 (which causes "connect ENETUNREACH 2607:f8b0:...")
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 dotenv.config();
 
@@ -436,13 +443,13 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-// Initialize TiDB Cloud MySQL Connection Pool
+// Initialize TiDB Cloud MySQL Connection Pool (Supports both TIDB_* and DB_* env vars)
 const pool = mysql.createPool({
-  host: process.env.TIDB_HOST || "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
-  user: process.env.TIDB_USER || "4JfwUQJNVeMWMwH.root",
-  password: process.env.TIDB_PASSWORD || "YSnA67L0zPtow1eP",
-  database: process.env.TIDB_DATABASE || "test",
-  port: parseInt(process.env.TIDB_PORT || "4000", 10),
+  host: (process.env.TIDB_HOST || process.env.DB_HOST || "gateway01.ap-southeast-1.prod.aws.tidbcloud.com").replace(/^["']|["']$/g, "").trim(),
+  user: (process.env.TIDB_USER || process.env.DB_USER || "4JfwUQJNVeMWMwH.root").replace(/^["']|["']$/g, "").trim(),
+  password: (process.env.TIDB_PASSWORD || process.env.DB_PASSWORD || "YSnA67L0zPtow1eP").replace(/^["']|["']$/g, "").trim(),
+  database: (process.env.TIDB_DATABASE || process.env.DB_NAME || "test").replace(/^["']|["']$/g, "").trim(),
+  port: parseInt((process.env.TIDB_PORT || process.env.DB_PORT || "4000").replace(/^["']|["']$/g, "").trim(), 10),
   ssl: { minVersion: "TLSv1.2", rejectUnauthorized: false },
   waitForConnections: true,
   connectionLimit: 10,
@@ -664,6 +671,64 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+// Unified OTP Email Sender with Dual Transport (Port 465 SSL & Port 587 STARTTLS) & Forced IPv4
+async function sendOtpEmailViaDualTransport(to: string, subject: string, html: string): Promise<{ success: boolean; error?: string }> {
+  const rawUser = process.env.SMTP_USER || "";
+  const rawPass = process.env.SMTP_PASS || "";
+
+  let user = rawUser.replace(/^["']|["']$/g, "").trim();
+  if (user.endsWith(".gmail.com") && !user.includes("@")) {
+    user = user.replace(/\.gmail\.com$/, "@gmail.com");
+  }
+  const pass = rawPass.replace(/^["']|["']$/g, "").replace(/\s+/g, "").trim();
+
+  if (!user || !pass) {
+    return { success: false, error: "SMTP_USER or SMTP_PASS environment variable is missing on Render." };
+  }
+
+  const senderEmail = user || "svu-portal@education.ac.in";
+  const from = `"SVU Academic Portal" <${senderEmail}>`;
+
+  // Attempt 1: Port 465 SSL with Forced IPv4 (family: 4)
+  try {
+    const transporter465 = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+      family: 4 as any,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+      tls: { rejectUnauthorized: false }
+    });
+    await transporter465.sendMail({ from, to, subject, html });
+    return { success: true };
+  } catch (err465: any) {
+    console.warn(`[SMTP Warning] Port 465 failed (${err465.message}). Retrying on Port 587 STARTTLS...`);
+  }
+
+  // Attempt 2: Port 587 STARTTLS with Forced IPv4 (family: 4)
+  try {
+    const transporter587 = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: { user, pass },
+      family: 4 as any,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+      tls: { rejectUnauthorized: false }
+    });
+    await transporter587.sendMail({ from, to, subject, html });
+    return { success: true };
+  } catch (err587: any) {
+    console.error(`[SMTP Error] Both Port 465 and Port 587 failed:`, err587.message);
+    return { success: false, error: err587.message };
+  }
+}
+
 // Nodemailer transporter helper with robust Render & Gmail compatibility
 function getMailer() {
   const rawUser = process.env.SMTP_USER || "";
@@ -686,29 +751,32 @@ function getMailer() {
   const isGmail = host.toLowerCase().includes("gmail") || user.toLowerCase().includes("@gmail.com");
 
   if (isGmail) {
-    // Using service: "gmail" connects directly via secure SSL (port 465)
-    // and bypasses port 587 STARTTLS firewall restrictions common on cloud platforms like Render
+    // Explicit port 465 SSL with forced IPv4 (family: 4) is guaranteed to work reliably on Render
     return nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: { user, pass },
-      connectionTimeout: 12000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      family: 4 as any,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
       tls: {
         rejectUnauthorized: false
       }
     });
   }
 
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
+  const port = parseInt((process.env.SMTP_PORT || "587").replace(/^["']|["']$/g, "").trim(), 10);
   return nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
-    connectionTimeout: 12000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    family: 4 as any,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: {
       rejectUnauthorized: false
     }
@@ -732,27 +800,54 @@ app.get("/api/auth/test-smtp", async (_req, res) => {
     });
   }
 
-  const mailer = getMailer();
-  if (!mailer) {
-    return res.status(500).json({ configured: false, error: "Failed to initialize mailer transport." });
-  }
-
   try {
-    await mailer.verify();
+    const transporter465 = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user, pass },
+      family: 4 as any,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      tls: { rejectUnauthorized: false }
+    });
+    await transporter465.verify();
     return res.status(200).json({
       configured: true,
       verified: true,
       user,
+      method: "Gmail Port 465 SSL (IPv4)",
       message: "SMTP credentials verified successfully! Email dispatch is active."
     });
-  } catch (err: any) {
-    return res.status(200).json({
-      configured: true,
-      verified: false,
-      user,
-      error: err.message || String(err),
-      tip: "If using Gmail, ensure 2-Step Verification is ON and you generated a 16-character 'App Password' from myaccount.google.com/apppasswords. Do NOT use your regular Gmail password."
-    });
+  } catch (err465: any) {
+    try {
+      const transporter587 = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        auth: { user, pass },
+        family: 4 as any,
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        tls: { rejectUnauthorized: false }
+      });
+      await transporter587.verify();
+      return res.status(200).json({
+        configured: true,
+        verified: true,
+        user,
+        method: "Gmail Port 587 STARTTLS (IPv4)",
+        message: "SMTP credentials verified successfully! Email dispatch is active."
+      });
+    } catch (err587: any) {
+      return res.status(200).json({
+        configured: true,
+        verified: false,
+        user,
+        error: `Port 465 (${err465.message}) | Port 587 (${err587.message})`,
+        tip: "Ensure you are using a 16-character Google App Password from myaccount.google.com/apppasswords."
+      });
+    }
   }
 });
 
@@ -842,30 +937,19 @@ app.post("/api/auth/login", async (req, res) => {
     // Save OTP to database
     await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
 
-    // Send email using Nodemailer
-    const mailer = getMailer();
-    let emailSent = false;
-    let smtpError: string | null = null;
-    const senderEmail = (process.env.SMTP_USER || "").replace(/^["']|["']$/g, "").trim() || "svu-portal@education.ac.in";
-
-    if (mailer) {
-      try {
-        await mailer.sendMail({
-          from: `"SVU Academic Portal" <${senderEmail}>`,
-          to: user.email,
-          subject: `🔐 SVU Verification Code: ${otp}`,
-          html: generateOtpHtml(otp, user.name)
-        });
-        emailSent = true;
-        console.log(`[SMTP SUCCESS] OTP email successfully delivered to ${user.email}`);
-      } catch (mErr: any) {
-        smtpError = mErr.message || String(mErr);
-        console.error(`[SMTP ERROR on Render] Failed to deliver OTP email to ${user.email}:`, smtpError);
-        console.error("Tip: Ensure you are using a 16-character Google App Password (not normal password) without quotes/spaces.");
-      }
+    // Send email using Unified Dual-Transport Nodemailer (Port 465 SSL & Port 587 TLS with forced IPv4)
+    const emailResult = await sendOtpEmailViaDualTransport(
+      user.email,
+      `🔐 SVU Verification Code: ${otp}`,
+      generateOtpHtml(otp, user.name)
+    );
+    const emailSent = emailResult.success;
+    const smtpError = emailResult.error || null;
+    if (emailSent) {
+      console.log(`[SMTP SUCCESS] OTP email successfully delivered to ${user.email}`);
     } else {
-      smtpError = "SMTP_USER or SMTP_PASS environment variable is missing on Render.";
-      console.warn("[SMTP NOTICE]", smtpError);
+      console.error(`[SMTP ERROR on Render] Failed to deliver OTP email to ${user.email}:`, smtpError);
+      console.error("Tip: Ensure your 16-character Google App Password has no quotes or spaces in Render environment.");
     }
 
     console.log(`\n========================================\n[SVU OTP LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
@@ -963,27 +1047,17 @@ app.post("/api/auth/resend-otp", async (req, res) => {
     const expiry = Date.now() + 10 * 60 * 1000;
     await pool.execute("UPDATE users SET otp = ?, otp_expiry = ? WHERE id = ?", [otp, expiry, user.id]);
 
-    const mailer = getMailer();
-    let emailSent = false;
-    let smtpError: string | null = null;
-    const senderEmail = (process.env.SMTP_USER || "").replace(/^["']|["']$/g, "").trim() || "svu-portal@education.ac.in";
-
-    if (mailer) {
-      try {
-        await mailer.sendMail({
-          from: `"SVU Academic Portal" <${senderEmail}>`,
-          to: user.email,
-          subject: `🔐 Resent SVU Verification Code: ${otp}`,
-          html: generateOtpHtml(otp, user.name)
-        });
-        emailSent = true;
-        console.log(`[SMTP SUCCESS] Resent OTP email successfully delivered to ${user.email}`);
-      } catch (mErr: any) {
-        smtpError = mErr.message || String(mErr);
-        console.error(`[SMTP ERROR on Render] Failed to resend OTP email to ${user.email}:`, smtpError);
-      }
+    const emailResult = await sendOtpEmailViaDualTransport(
+      user.email,
+      `🔐 Resent SVU Verification Code: ${otp}`,
+      generateOtpHtml(otp, user.name)
+    );
+    const emailSent = emailResult.success;
+    const smtpError = emailResult.error || null;
+    if (emailSent) {
+      console.log(`[SMTP SUCCESS] Resent OTP email successfully delivered to ${user.email}`);
     } else {
-      smtpError = "SMTP_USER or SMTP_PASS environment variable is missing on Render.";
+      console.error(`[SMTP ERROR on Render] Failed to resend OTP email to ${user.email}:`, smtpError);
     }
 
     console.log(`\n========================================\n[SVU OTP RESEND LOG] User: ${user.email} | OTP: ${otp}\n========================================\n`);
