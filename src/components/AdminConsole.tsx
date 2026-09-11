@@ -1881,10 +1881,26 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
       {/* DETAILED INTERVIEW PERFORMANCE TRANSCRIPT MODAL */}
       {viewingInterview && (
         <div className="modal-overlay" onClick={() => setViewingInterview(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: "min(1050px, 95vw)" }}>
-            <X className="modal-close" onClick={() => setViewingInterview(null)} />
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: "min(1050px, 95vw)", position: "relative" }}>
+            <X 
+              className="modal-close" 
+              onClick={() => setViewingInterview(null)} 
+              style={{
+                position: "absolute",
+                top: "20px",
+                right: "20px",
+                zIndex: 20,
+                cursor: "pointer",
+                padding: "6px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                boxSizing: "content-box",
+                transition: "all 0.2s ease"
+              }}
+            />
             
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px", flexWrap: "wrap", gap: "12px", paddingRight: "60px" }}>
               <h2 style={{ fontFamily: "Syncopate", fontSize: "15px", color: "var(--accent)", margin: 0, letterSpacing: "2px", display: "flex", alignItems: "center", gap: "10px" }}>
                 <Award size={18} style={{ color: "var(--accent)" }} /> OFFICIAL INTERVIEW ASSESSMENT REPORT CARD & MARKSHEET
               </h2>

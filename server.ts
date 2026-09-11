@@ -1324,9 +1324,14 @@ app.post("/api/interview/questions", async (req, res) => {
 
     const lowerStream = stream.toLowerCase();
     const lowerQual = qualification.toLowerCase();
+    const skillsText = (skillsString + " " + (analysis?.careerDomain || "") + " " + (analysis?.knowledgeDepth || "") + " " + stream).toLowerCase();
+
     const isMedical = lowerStream.includes("doctor") || lowerStream.includes("medical") || lowerStream.includes("mbbs") || lowerStream.includes("nursing") || lowerStream.includes("pharma") || lowerStream.includes("dentist") || lowerStream.includes("health") || lowerQual.includes("mbbs") || lowerQual.includes("md") || lowerQual.includes("bds");
     const isLegal = lowerStream.includes("law") || lowerStream.includes("legal") || lowerStream.includes("llb") || lowerStream.includes("court") || lowerStream.includes("advocate") || lowerQual.includes("llb") || lowerQual.includes("llm");
-    const isEngineering = lowerStream.includes("computer") || lowerStream.includes("engineer") || lowerStream.includes("tech") || lowerStream.includes("bca") || lowerStream.includes("mca") || lowerStream.includes("software") || lowerQual.includes("b.tech") || lowerQual.includes("m.tech") || lowerQual.includes("bca") || lowerQual.includes("mca");
+    const isTeaching = lowerStream.includes("education") || lowerStream.includes("teach") || lowerQual.includes("b.ed") || lowerQual.includes("education") || skillsText.includes("teaching") || skillsText.includes("pedagogy");
+    const isVideoOrMedia = skillsText.includes("video") || skillsText.includes("premiere") || skillsText.includes("resolve") || skillsText.includes("after effects") || skillsText.includes("photoshop") || skillsText.includes("motion") || skillsText.includes("graphic") || skillsText.includes("multimedia") || skillsText.includes("content") || skillsText.includes("color grading") || skillsText.includes("editing");
+    const isFrontendOrWeb = !isVideoOrMedia && (skillsText.includes("react") || skillsText.includes("frontend") || skillsText.includes("web development") || skillsText.includes("javascript") || skillsText.includes("html") || skillsText.includes("css") || skillsText.includes("ui/ux") || skillsText.includes("tailwind"));
+    const isEngineering = !isVideoOrMedia && !isTeaching && !isFrontendOrWeb && (lowerStream.includes("computer") || lowerStream.includes("engineer") || lowerStream.includes("tech") || lowerStream.includes("bca") || lowerStream.includes("mca") || lowerStream.includes("software") || lowerQual.includes("b.tech") || lowerQual.includes("m.tech") || lowerQual.includes("bca") || lowerQual.includes("mca"));
 
     let fallbackQuestions = [];
     if (isMedical) {
@@ -1345,9 +1350,7 @@ app.post("/api/interview/questions", async (req, res) => {
         { q: "Which of the following classes of antihypertensive drugs is absolutely contraindicated in pregnancy due to risks of fetal renal dysgenesis?", s: "Select the class known to cause severe fetal abnormalities.", d: "Medium", type: "mcq", options: ["A. Beta-blockers", "B. Calcium Channel Blockers", "C. ACE Inhibitors and Angiotensin II Receptor Blockers (ARBs)", "D. Centrally acting Alpha-2 Agonists"] },
         { q: "Describe the pathophysiology, diagnostic laboratory findings, and immediate fluid/electrolyte correction strategy for Diabetic Ketoacidosis (DKA).", s: "Detail anion gap metabolic acidosis, potassium shifts, fluid deficits, and insulin infusion rates.", d: "Medium", type: "short" },
         { q: "Explain the standard clinical protocol for managing a patient presenting with an acute exacerbation of COPD.", s: "Detail oxygenation targets, nebulized bronchodilators, systemic corticosteroids, and non-invasive ventilation indications.", d: "Hard", type: "long" },
-        { q: "Identify the primary hormone excess and diagnostic screening tests (e.g. dexamethasone suppression) for Cushing's Syndrome.", s: "Identify the hormone produced by the adrenal cortex and cortisol suppression pathways.", d: "Easy", type: "mcq", options: ["A. Excess Aldosterone", "B. Excess Cortisol", "C. Excess Thyroxine", "D. Excess Epinephrine"] },
-        { q: "Explain the differential diagnosis, clinical presentation, and initial management differences between Tension Pneumothorax and Cardiac Tamponade.", s: "Contrast breath sounds, tracheal deviation, Beck's triad, and needle decompression vs pericardiocentesis.", d: "Medium", type: "long" },
-        { q: "Describe how you would approach a pediatric patient presenting with high fever, neck stiffness, and non-blanching purpuric rash.", s: "Detail physical tests like Brudzinski/Kernig, immediate blood cultures, lumbar puncture, and empiric antibiotics.", d: "Hard", type: "long" }
+        { q: "Identify the primary hormone excess and diagnostic screening tests (e.g. dexamethasone suppression) for Cushing's Syndrome.", s: "Identify the hormone produced by the adrenal cortex and cortisol suppression pathways.", d: "Easy", type: "mcq", options: ["A. Excess Aldosterone", "B. Excess Cortisol", "C. Excess Thyroxine", "D. Excess Epinephrine"] }
       ];
     } else if (isLegal) {
       fallbackQuestions = [
@@ -1360,32 +1363,61 @@ app.post("/api/interview/questions", async (req, res) => {
         { q: "What does the Latin legal maxim 'Actus non facit reum nisi mens sit rea' literally translate to in criminal jurisprudence?", s: "Identify the translation that links physical act with the requirement of a guilty mind.", d: "Medium", type: "mcq", options: ["A. The act itself makes a person guilty without further proof", "B. An act does not make a person guilty unless the mind is also guilty", "C. Ignorance of law is not an excuse for illegal conduct", "D. Nobody should be a judge in their own legal cause"] },
         { q: "Differentiate between 'Common Intention' and 'Common Object' under joint criminal liability principles.", s: "Mention pre-arranged plan and meeting of minds vs prior membership of an unlawful assembly.", d: "Hard", type: "short" },
         { q: "Explain the 'Basic Structure Doctrine' of constitutional law and outline its landmark judicial origins.", s: "Discuss Kesavananda Bharati v. State of Kerala, structural limits on parliamentary amending power, and core features.", d: "Hard", type: "long" },
-        { q: "Describe a complex legal dispute where you had to research precedent and draft pleadings under a tight deadline. How did you structure the brief?", s: "Focus on ratio decidendi extraction, IRAC methodology, and procedural compliance.", d: "Hard", type: "long" },
-        { q: "Which of the following constitutes admissible 'Hearsay Evidence' under statutory exceptions to the evidence law?", s: "Select the option explaining statements made out-of-court that are accepted under strict exceptions.", d: "Easy", type: "mcq", options: ["A. A casual rumor reported by a third-party witness", "B. A dying declaration made by a victim regarding the cause of death", "C. An unsigned anonymous letter found at the scene", "D. An out-of-court statement offered solely to prove the witness's memory"] },
-        { q: "Briefly explain the legal doctrine of 'Caveat Emptor' in commercial sale contracts and state its primary modern exceptions.", s: "Explain buyer beware, duty of reasonable inspection, and exceptions like implied fitness for purpose.", d: "Easy", type: "short" },
-        { q: "What is the fundamental legal distinction between a 'Cognizable Offense' and a 'Non-Cognizable Offense'?", s: "Discuss arrest without warrant capabilities, police obligation to register FIR, and court permissions.", d: "Medium", type: "short" },
-        { q: "Explain the doctrine of 'Pith and Substance' in constitutional interpretation when resolving legislative competence disputes.", s: "Discuss looking at true nature and character of legislation when it overlaps between state/central lists.", d: "Medium", type: "short" },
-        { q: "Which landmark judicial precedent established the 'Rarest of Rare Cases' doctrine for imposing death penalty?", s: "Recall the critical Supreme Court precedent governing sentencing discretion guidelines.", d: "Hard", type: "mcq", options: ["A. Maneka Gandhi v. Union of India", "B. Bachan Singh v. State of Punjab", "C. Keshvananda Bharati v. State of Kerala", "D. Vishaka v. State of Rajasthan"] },
-        { q: "Detail the legal steps, remedies, and primary defenses available in a civil suit for Defamation.", s: "Mention publication, reference to plaintiff, damage, absolute vs qualified privilege, and truth/justification.", d: "Hard", type: "long" }
+        { q: "Describe a complex legal dispute where you had to research precedent and draft pleadings under a tight deadline. How did you structure the brief?", s: "Focus on ratio decidendi extraction, IRAC methodology, and procedural compliance.", d: "Hard", type: "long" }
+      ];
+    } else if (isVideoOrMedia) {
+      fallbackQuestions = [
+        { q: "When delivering video content for broadcast and web platforms, which video codec and compression standard provides intra-frame editing efficiency with minimal generational loss?", s: "Identify the codec engineered specifically for high-fidelity post-production intermediate workflows.", d: "Easy", type: "mcq", options: ["A. Apple ProRes 422 HQ / Avid DNxHR", "B. Highly compressed H.264 Long-GOP", "C. Uncompressed AVI 8-bit", "D. Animated GIF standard"] },
+        { q: "In color grading workflows inside DaVinci Resolve or Premiere Pro, explain the critical difference between Log gamma footage and Rec.709 color space, and why a Color Space Transform (CST) is preferred over destructive LUT clipping.", s: "Contrast dynamic range preservation, highlight roll-off, and node pipeline order.", d: "Easy", type: "short" },
+        { q: "Describe your end-to-end video post-production workflow for a high-turnaround commercial campaign: from media ingest, proxy generation, rough assembly, rough cut pacing, to audio mixdown and final color pass.", s: "Detail project organization, bin structure, multi-camera sync, and timeline optimization.", d: "Easy", type: "long" },
+        { q: "What is the primary industry standard loudness target (LUFS) for streaming video platforms (such as YouTube, Instagram, and Spotify) to prevent automated audio normalization ducking?", s: "Select the standard integrated loudness benchmark for digital web platforms.", d: "Medium", type: "mcq", options: ["A. -14 LUFS Integrated with -1.0 dB True Peak", "B. -6 LUFS with +2.0 dB True Peak", "C. -24 LUFS EBU R128 European TV standard", "D. 0 dB RMS"] },
+        { q: "Explain how you handle keyframe velocity and spatial interpolation in Adobe After Effects using the Speed Graph and Value Graph to achieve organic, natural-looking motion graphics.", s: "Discuss Bezier handles, ease-in/ease-out acceleration, and motion blur shutter angle.", d: "Medium", type: "short" },
+        { q: "Detail how you solved a critical project challenge on your resume (e.g. promotional brand campaigns or social lifestyle reels) where raw footage suffered from mixed lighting temperatures, heavy digital noise, or tight delivery deadlines.", s: "Use the STAR method: describe the specific problem, tools used (denoiser, primary qualifiers, curves), and client impact.", d: "Medium", type: "long" },
+        { q: "Which color grading scope is most essential for identifying color casts and ensuring skin tones land precisely along the melanin indicator line?", s: "Identify the circular chromaticity scope used for hue and saturation balance.", d: "Medium", type: "mcq", options: ["A. Vectorscope", "B. Waveform Luma", "C. RGB Histogram", "D. Audio Peak Meter"] },
+        { q: "Explain the technical distinction between 4:2:0 and 4:2:2 chroma subsampling, and how it impacts clean chroma keying (green screen extraction) in compositing.", s: "Highlight color resolution per pixel matrix, edge artifacts, and alpha matte fidelity.", d: "Hard", type: "short" },
+        { q: "Discuss your content strategy and creative execution when optimizing video edits for vertical 9:16 platforms (Reels, TikTok) vs horizontal 16:9 displays. How do you maintain visual hierarchy, hook retention, and narrative pacing?", s: "Address hook retention within the first 3 seconds, dynamic pacing, B-roll layering, text safe zones, and sound design.", d: "Hard", type: "long" },
+        { q: "Describe a project where a client requested drastic revisions after delivery. How did you manage project versioning, timeline backup, asset relinking, and client expectations professionally?", s: "Explain revision tracking, render caching, smart bin organization, and clear client communication.", d: "Hard", type: "long" },
+        { q: "In Adobe Premiere Pro, which playback and rendering engine utilizes dedicated GPU acceleration (CUDA, Metal, or OpenCL) to real-time render heavy effects and color grades?", s: "Identify Adobe's core hardware acceleration engine.", d: "Easy", type: "mcq", options: ["A. Mercury Playback Engine GPU Accelerated", "B. CPU Software Only Mode", "C. DirectX Direct3D Renderer", "D. QuickTime Native Pipeline"] },
+        { q: "What is the difference between an optical flow retiming algorithm and frame blending when creating smooth slow-motion footage in post-production?", s: "Explain pixel vector tracking vs opacity blending between adjacent video frames.", d: "Medium", type: "short" },
+        { q: "Explain the role of parametric equalization, compression, and sidechain ducking when mixing vocal dialogue over background music in a video track.", s: "Discuss frequency masking, clearing mud around 200-500Hz, and auto-ducking music levels when speech occurs.", d: "Medium", type: "long" },
+        { q: "What is the purpose of ACES (Academy Color Encoding System) in high-end video production and VFX pipelines?", s: "Select the option explaining color management standardization across multiple camera sensors.", d: "Hard", type: "mcq", options: ["A. A device-independent, scene-referred color management standard that unifies footage from multiple cameras", "B. An audio compression codec used for surround sound", "C. A script plugin used only for exporting animated GIFs", "D. A hardware calibration monitor standard"] },
+        { q: "Outline your strategy for archiving, backing up, and cataloging massive project libraries of 4K/6K raw media to ensure data redundancy without exhausting storage overhead.", s: "Mention 3-2-1 backup strategy, LTO/cold storage, project consolidation/trimming, and checksum verification (e.g. MD5).", d: "Hard", type: "long" }
+      ];
+    } else if (isTeaching) {
+      fallbackQuestions = [
+        { q: "According to Bloom's Revised Taxonomy, which cognitive process dimension represents the highest level of intellectual complexity in learner evaluation?", s: "Recall the peak cognitive dimension in the revised hierarchy.", d: "Easy", type: "mcq", options: ["A. Creating (generating new ideas, products, or viewpoints)", "B. Evaluating (critiquing and judging)", "C. Analyzing (differentiating and organizing)", "D. Remembering (retrieving relevant knowledge)"] },
+        { q: "Explain the fundamental difference between 'Formative Assessment' and 'Summative Assessment', and give practical classroom examples of each.", s: "Contrast ongoing low-stakes feedback for learning improvement vs high-stakes terminal evaluation.", d: "Easy", type: "short" },
+        { q: "Describe your pedagogical approach when teaching a complex, abstract concept to a diverse classroom with wide variations in student learning pace and aptitude.", s: "Mention differentiated instruction, multi-modal scaffolding, active questioning, and peer learning.", d: "Easy", type: "long" },
+        { q: "Which educational psychology theory posits that optimal learning occurs within a student's 'Zone of Proximal Development' (ZPD) through structured scaffolding?", s: "Identify the socio-cultural learning theorist who introduced ZPD and scaffolding.", d: "Medium", type: "mcq", options: ["A. Lev Vygotsky", "B. Jean Piaget", "C. B.F. Skinner", "D. Howard Gardner"] },
+        { q: "Explain the concept of 'Differentiated Instruction' and how a teacher can differentiate by content, process, and product in lesson delivery.", s: "Detail tiered assignments, learning stations, and varied assessment formats.", d: "Medium", type: "short" },
+        { q: "Describe a real situation where you had to manage a disruptive student or overcome severe disengagement in a study session. What steps did you take?", s: "Discuss empathetic de-escalation, private dialogue, establishing clear behavioral expectations, and positive reinforcement.", d: "Medium", type: "long" },
+        { q: "What is the primary objective of a 'Diagnostic Assessment' conducted prior to starting a new instructional curriculum unit?", s: "Identify the purpose centered on determining prior knowledge, strengths, and baseline skill gaps.", d: "Medium", type: "mcq", options: ["A. To identify existing misconceptions, prerequisite knowledge, and baseline readiness", "B. To assign final report card letter grades", "C. To rank students competitively in class percentiles", "D. To penalize absenteeism"] },
+        { q: "Explain how you incorporate constructive feedback into student assignments to encourage a Growth Mindset rather than academic anxiety.", s: "Contrast effort/strategy praise with fixed ability praise; mention actionable forward guidance.", d: "Hard", type: "short" },
+        { q: "Detail how you design a comprehensive semester lesson plan and study schedule that aligns curriculum objectives with time management and revision cycles.", s: "Discuss backward design (UbD), milestone tracking, formative checkpoints, and remediation buffers.", d: "Hard", type: "long" }
+      ];
+    } else if (isFrontendOrWeb) {
+      fallbackQuestions = [
+        { q: "In modern React applications, what is the primary purpose and algorithmic complexity of the Reconciliation process (Virtual DOM diffing)?", s: "Identify the heuristic O(n) diffing assumptions used to minimize DOM updates.", d: "Easy", type: "mcq", options: ["A. A heuristic O(n) algorithm comparing element trees using unique keys and component types", "B. An exhaustive O(n^3) recursive tree diffing algorithm", "C. Direct mutation of the browser DOM tree on every state change", "D. A CSS repaint scheduling queue"] },
+        { q: "Explain the difference between client-side rendering (CSR), server-side rendering (SSR), and static site generation (SSG) in terms of Time-to-First-Byte (TTFB) and First Contentful Paint (FCP).", s: "Contrast server HTML generation, client hydration overhead, and caching strategies.", d: "Easy", type: "short" },
+        { q: "Describe the architecture, state management patterns, and performance optimizations you implemented in a web project from your resume.", s: "Use STAR format: highlight state normalization, code-splitting, lazy loading, and memoization.", d: "Easy", type: "long" },
+        { q: "Which CSS property triggers GPU compositing and avoids both layout reflows and paint recalculations during animation?", s: "Identify properties that can be offloaded directly to the GPU compositor thread.", d: "Medium", type: "mcq", options: ["A. transform and opacity", "B. width and height", "C. top and left", "D. margin and padding"] },
+        { q: "Explain how the JavaScript Event Loop handles the execution order between synchronous code, microtasks (Promises), and macrotasks (setTimeout).", s: "Detail the call stack, microtask queue draining before rendering, and macrotask queue sequencing.", d: "Medium", type: "short" },
+        { q: "Discuss a complex frontend bug or performance bottleneck you encountered in your projects (e.g. unnecessary re-renders, memory leaks, or responsive layout glitches) and how you resolved it.", s: "Mention React Profiler, useCallback/useMemo trade-offs, DOM node cleanup, and clean state lifecycles.", d: "Medium", type: "long" },
+        { q: "What is the primary benefit of implementing 'Tree Shaking' during the modern JavaScript module bundling process?", s: "Select the option explaining elimination of unused dead code exports.", d: "Medium", type: "mcq", options: ["A. Eliminating unused dead code from the final production bundle using static ES module analysis", "B. Compressing images into WebP formats automatically", "C. Converting CSS files into JavaScript strings", "D. Encrypting client-side bundle source maps"] },
+        { q: "Explain the concept of Web Accessibility (a11y) and how you ensure keyboard navigation, ARIA attributes, and semantic HTML in web applications.", s: "Mention semantic landmarks, focus management, screen reader compatibility, and contrast ratios.", d: "Hard", type: "short" },
+        { q: "Design a scalable frontend architecture for an enterprise dashboard handling live streaming telemetry data. Detail state management, rendering throttling, and memory hygiene.", s: "Discuss requestAnimationFrame, virtualized lists for large datasets, WebSockets, and state batching.", d: "Hard", type: "long" }
       ];
     } else if (isEngineering) {
       fallbackQuestions = [
-        { q: "Under high write-concurrency, which distributed database transaction model prevents race conditions without introducing a single point of failure?", s: "Consider distributed transactions, locking mechanisms, and coordination overhead.", d: "Easy", type: "mcq", options: ["A. Two-Phase Commit (2PC) with centralized coordinator", "B. Optimistic Concurrency Control (OCC) with decentralized validation and Raft consensus", "C. Single-master replication without transaction logs", "D. Simple table-level locking in a secondary replica"] },
-        { q: "Explain the architectural difference and memory trade-offs between implementing an asynchronous task worker with a ring-buffer vs a lock-free linked list queue.", s: "Contrast bounded/unbounded memory footprints, cache-locality, and CPU atomic operations.", d: "Easy", type: "short" },
-        { q: "Explain the advantages and architectural trade-offs of designing a multi-region distributed system with eventual consistency vs strong consistency.", s: "Highlight CAP theorem constraints, write latency, sync replication, and database division.", d: "Easy", type: "long" },
-        { q: "When a security audit flags a JWT-based session architecture for susceptibility to token replay attacks, which mitigation strategy is most secure?", s: "Distinguish between standard expiration and active validation techniques.", d: "Medium", type: "mcq", options: ["A. Simply reducing token expiry duration to 5 minutes", "B. Implementing token rotation with short-lived access tokens and sliding refresh tokens backed by a Redis revocation list", "C. Storing the JWT in the browser's local storage", "D. Encrypting the JWT payload with a public RSA key"] },
-        { q: "Explain the exact performance impact, lock escalation behavior, and deadlock mitigation strategy when switching from optimistic concurrency control (OCC) to pessimistic locking in a high-concurrency PostgreSQL database.", s: "Contrast lock-free version checks with active row-level locks like SELECT FOR UPDATE.", d: "Medium", type: "short" },
-        { q: "Design a fault-tolerant and highly scalable microservices pipeline for high-throughput file parsing, detailing rate-limiting, message queues, and horizontal scaling.", s: "Discuss API gateways, rate-limiters (token bucket), pub-sub queues (Kafka/RabbitMQ), and worker auto-scaling.", d: "Medium", type: "long" },
-        { q: "In distributed databases, which of the following is represented by the PACELC theorem as an extension of the CAP theorem?", s: "Identify the theorem component focusing on latency and consistency trade-offs when there are no partitions.", d: "Medium", type: "mcq", options: ["A. Partition, Availability, Consistency, Else Latency, Consistency", "B. Performance, Availability, Cache, Else Load, Capacity", "C. Asynchronous, Coherent, Encryption, Else Durable, Decoupled", "D. Parallelism, Active-active, Consensus, Else Replay, Validation"] },
-        { q: "Explain the CAP theorem and discuss its implications for distributed database systems, highlighting how NoSQL databases choose between AP and CP.", s: "Contrast consistency, availability, and partition tolerance trade-offs in distributed data systems.", d: "Hard", type: "short" },
-        { q: "Detail the system architecture of a scalable, fault-tolerant real-time notification system capable of supporting 10 million concurrent WebSocket connections.", s: "Discuss WebSockets/SSE, pub/sub queues (Redis/Kafka), load balancing, and connection-pinning backends.", d: "Hard", type: "long" },
-        { q: "Discuss a challenging project from your resume. What was the most critical performance bottleneck or memory leak you encountered, and how did you diagnose and resolve it under load?", s: "Utilize the STAR method, citing exact profiling, memory heap dump tools, and architectural changes.", d: "Hard", type: "long" },
         { q: "Which of the following database normal forms (NF) specifically addresses eliminating transitive dependencies on non-prime attributes?", s: "Identify the normalization level that eliminates transitive functional dependencies.", d: "Easy", type: "mcq", options: ["A. First Normal Form (1NF)", "B. Second Normal Form (2NF)", "C. Third Normal Form (3NF)", "D. Boyce-Codd Normal Form (BCNF)"] },
-        { q: "Briefly explain the purpose, routing algorithms, and health-checking mechanisms of a Layer 7 Load Balancer in modern web architectures.", s: "Explain reverse proxy, routing incoming requests at application layer (HTTP/HTTPS), and server pooling.", d: "Easy", type: "short" },
-        { q: "Explain the architectural differences, payload overhead, and API versioning strategies when choosing between RESTful APIs, GraphQL, and gRPC.", s: "Compare fixed endpoints vs client-defined queries and binary serialization of Protocol Buffers.", d: "Medium", type: "short" },
-        { q: "Describe the primary architectural benefits, index structures, and consistency trade-offs of using a Document Store (like MongoDB) over a Relational Database.", s: "Contrast schema flexibility and horizontal partitioning (sharding) with transactional ACID constraints.", d: "Medium", type: "long" },
-        { q: "What is the primary objective of implementing a Write-Ahead Log (WAL) in modern transactional database engines?", s: "Identify the core trait focused on durability, recovery, and atomicity.", d: "Medium", type: "mcq", options: ["A. Accelerating read query performance using B-Tree indices", "B. Ensuring durability and transaction recovery (ACID) by logging modifications before applying changes to data pages", "C. Normalizing tables to avoid redundant entries", "D. Automatically distributing database partitions across multiple cloud nodes"] },
-        { q: "Detail the steps, security practices, and deployment strategies (e.g. blue-green, canary) for establishing a secure, automated CI/CD pipeline.", s: "Discuss automated testing, static code analysis (SAST), secrets management, and zero-downtime rolling updates.", d: "Hard", type: "long" }
+        { q: "Explain the difference between Object-Oriented Programming (OOP) and Procedural Programming, highlighting polymorphism and encapsulation with practical examples.", s: "Contrast modular encapsulation and dynamic method dispatch against linear sequential function calls.", d: "Easy", type: "short" },
+        { q: "Discuss a core software development project from your resume. Outline your database schema design, core business logic modules, and how you handled input validation and error states.", s: "Highlight architecture choices, relational schema normalization, and resilient error handling.", d: "Easy", type: "long" },
+        { q: "In relational database indexing, which data structure is most widely used for B-Tree indices and why does it outperform binary search trees for disk-based storage?", s: "Select the structure offering high branching factor, shallow tree depth, and block sequential I/O.", d: "Medium", type: "mcq", options: ["A. B+ Tree with high branching factor and linked leaf nodes for range scans", "B. Unbalanced Binary Search Tree", "C. Hash Map without range search capabilities", "D. Singly Linked List"] },
+        { q: "Explain the four ACID properties in database transactions and describe what a 'Dirty Read' anomaly is under low isolation levels.", s: "Define Atomicity, Consistency, Isolation, Durability, and uncommitted data read risks.", d: "Medium", type: "short" },
+        { q: "Describe a scenario where an application you built crashed or had severe latency under concurrent user usage. What diagnostic tools or debugging steps did you take?", s: "Discuss profiling, query explain plans, connection pool limits, and structured log tracing.", d: "Medium", type: "long" },
+        { q: "What is the time and space complexity of searching an element in a balanced Binary Search Tree (AVL or Red-Black Tree) containing N elements?", s: "Identify the logarithmic time complexity for balanced tree lookup.", d: "Medium", type: "mcq", options: ["A. O(log N) time and O(1) auxiliary space", "B. O(N) time and O(N) auxiliary space", "C. O(N log N) time and O(log N) space", "D. O(1) constant time"] },
+        { q: "Explain the distinction between synchronous blocking execution and asynchronous non-blocking event-driven execution in software applications.", s: "Contrast thread-per-request blocking vs single-threaded non-blocking I/O event loops.", d: "Hard", type: "short" },
+        { q: "Detail how you design a secure RESTful API endpoint, addressing input sanitization, authentication/authorization, rate limiting, and SQL injection prevention.", s: "Discuss parameterized queries, JWT/OAuth validation, CORS headers, and status code standards.", d: "Hard", type: "long" }
       ];
     } else {
       fallbackQuestions = [
@@ -1397,14 +1429,7 @@ app.post("/api/interview/questions", async (req, res) => {
         { q: "Describe a major crisis where a core teammate resigned unexpectedly on the day of a critical client launch. How did you manage resources and communicate with stakeholders?", s: "Outline task triaging, risk management, objective prioritization, and transparent stakeholder communication.", d: "Medium", type: "long" },
         { q: "Which of the following best defines the 'Weighted Average Cost of Capital' (WACC) in corporate valuation models?", s: "Identify the formula representing cost of equity and cost of debt proportions.", d: "Medium", type: "mcq", options: ["A. The simple average of interest rates on bank loans", "B. The blended rate of return a company is expected to pay to all its security holders to finance its assets", "C. The tax rate applied to corporate earnings", "D. The risk-free rate of return set by central banks"] },
         { q: "Briefly explain the 'DuPont Analysis' model and how it decomposes Return on Equity (ROE) into three distinct financial levers.", s: "Detail how profit margin, asset turnover, and financial leverage contribute to overall ROE.", d: "Hard", type: "short" },
-        { q: "Formulate a comprehensive market-entry strategy for a premium electric vehicle brand seeking to expand into South-East Asian markets under tight regulatory constraints.", s: "Discuss regulatory compliance, supply chain logistics, joint-ventures, localized marketing, and charging infrastructure.", d: "Hard", type: "long" },
-        { q: "Detail how you would resolve a major cross-departmental resource deadlock between software engineering and product management during a high-stakes release.", s: "Discuss negotiation tactics, priority mapping, shared objectives, and establishing clear accountability frameworks.", d: "Hard", type: "long" },
-        { q: "Which of the following best defines 'Active Listening' in professional communication?", s: "Select the option that details feedback, clarification, and complete concentration on speaker.", d: "Easy", type: "mcq", options: ["A. Taking notes verbatim during a meeting", "B. Hearing words while planning your next response", "C. Giving undivided attention, clarifying, and reflecting back meaning", "D. Directing the conversation to your own goals"] },
-        { q: "Explain the difference between 'Direct Marketing' and 'Indirect Marketing'.", s: "Contrast targeted communication to individual consumers against brand-awareness mass media campaigns.", d: "Easy", type: "short" },
-        { q: "Describe the primary components of a standard Business Model Canvas.", s: "Mention value propositions, customer segments, channels, revenue streams, and key partners.", d: "Medium", type: "long" },
-        { q: "What is the primary goal of utilizing Key Performance Indicators (KPIs) in corporate settings?", s: "Discuss measuring quantitative performance progress against key strategic objectives.", d: "Medium", type: "short" },
-        { q: "In financial management, what does 'Break-Even Point' represent?", s: "Identify the revenue level where total revenue exactly equals total costs.", d: "Medium", type: "mcq", options: ["A. The point of maximum profit generation", "B. The state where total revenue equals total fixed and variable costs", "C. The initial capital requirement of a venture", "D. The interest rate on corporate loans"] },
-        { q: "Detail how you would manage a major crisis where a team project has critical bugs on deployment day.", s: "Discuss immediate communication, hotfix triage, stakeholder management, and post-mortem analysis.", d: "Hard", type: "long" }
+        { q: "Detail how you would resolve a major cross-departmental resource deadlock between technical execution and management during a high-stakes release.", s: "Discuss negotiation tactics, priority mapping, shared objectives, and establishing clear accountability frameworks.", d: "Hard", type: "long" }
       ];
     }
 
@@ -1420,51 +1445,50 @@ app.post("/api/interview/questions", async (req, res) => {
       fallbackQuestions = filteredFallback;
     }
 
-    let customTailoredQuestions = [];
-    // Check if the user has custom resume details and generate tailored questions
+    let customTailoredQuestions: any[] = [];
+    // Dynamically inject questions tailored to the candidate's exact detected CV skills and projects
     if (skillsList.length > 0 || (analysis && analysis.keyProjects && analysis.keyProjects.length > 0)) {
-      const topSkills = skillsList.slice(0, 3).map((s: any) => s.name).join(", ");
-      const topProj = (analysis && analysis.keyProjects && analysis.keyProjects.length > 0)
-        ? analysis.keyProjects[0].title
-        : "listed project";
+      const pList = (analysis && analysis.keyProjects && Array.isArray(analysis.keyProjects)) ? analysis.keyProjects : [];
+      
+      // Inject project-specific questions from their real CV
+      pList.forEach((proj: any, idx: number) => {
+        if (proj.title && customTailoredQuestions.length < 4) {
+          customTailoredQuestions.push({
+            q: `Based on your resume, detail your direct technical contribution to the project "${proj.title}" (${proj.techStack || "specialized tools"}). What were the critical workflow bottlenecks or execution constraints, and how did you resolve them?`,
+            s: "Use the STAR approach. Focus on tools used, your personal problem-solving, and measurable results.",
+            d: idx === 0 ? "Hard" : "Medium",
+            type: "long"
+          });
+        }
+      });
 
-      let projectQText = `Based on your resume, explain the detailed architecture and key implementation challenges of your project "${topProj}". How did you resolve performance bottlenecks or key constraints?`;
-      let skillsQText = `How do you apply your core skills in "${topSkills}" to solve complex practical problems in your domain of "${stream}"? Give a specific real-world example.`;
-      let scenarioQText = `In your stream of ${stream}, describe a situation where you had to debug a critical issue or manage a sudden crisis in a project. What was your approach?`;
-
-      let projectHint = "Use the STAR approach. Focus on your specific contribution, tools used, and results.";
-      let skillsHint = "Provide a concrete instance where you solved a high-impact problem using these technical tools.";
-      let scenarioHint = "Discuss immediate communication, resource management, and steps taken to resolve it.";
-
-      if (language === "Bengali") {
-        projectQText = `আপনার সিভি অনুযায়ী, "${topProj}" প্রজেক্টটির আর্কিটেকচার এবং বাস্তবায়নের প্রধান চ্যালেঞ্জগুলি বিস্তারিত ব্যাখ্যা করুন। আপনি কিভাবে পারফরম্যান্স বা অন্যান্য সীমাবদ্ধতা সমাধান করেছিলেন?`;
-        skillsQText = `"${stream}" ডোমেনে কাজ করার সময় আপনার প্রধান দক্ষতা "${topSkills}" কিভাবে জটিল বাস্তব সমস্যা সমাধানে ব্যবহার করবেন? একটি নির্দিষ্ট উদাহরণ দিন।`;
-        scenarioQText = `আপনার বিষয় "${stream}"-এ, এমন একটি পরিস্থিতির বর্ণনা দিন যেখানে আপনাকে একটি বড় প্রজেক্টের জটিল সমস্যা সমাধান করতে হয়েছিল। আপনার সমাধান পদ্ধতি কি ছিল?`;
-        
-        projectHint = "STAR পদ্ধতি ব্যবহার করুন। আপনার অবদান, প্রযুক্তি এবং ফলাফলের ওপর আলোকপাত করুন।";
-        skillsHint = "আপনি এই প্রযুক্তিগুলি ব্যবহার করে কিভাবে একটি বড় সমস্যার সমাধান করেছিলেন তার একটি বাস্তব উদাহরণ দিন।";
-        scenarioHint = "যোগাযোগ ব্যবস্থা, রিসোর্স ম্যানেজমেন্ট এবং সমস্যা সমাধানের পদক্ষেপগুলি বর্ণনা করুন।";
-      } else if (language === "Hindi") {
-        projectQText = `आपके बायोडाटा के अनुसार, आपके प्रोजेक्ट "${topProj}" की विस्तृत वास्तुकला (Architecture) और मुख्य चुनौतियों का वर्णन करें। आपने प्रदर्शन या सीमाओं को कैसे हल किया?`;
-        skillsQText = `"${stream}" के क्षेत्र में, जटिल व्यावहारिक समस्याओं को हल करने के लिए आप अपने मुख्य कौशल "${topSkills}" का उपयोग कैसे करेंगे? एक विशिष्ट वास्तविक उदाहरण दें।`;
-        scenarioQText = `आपके विषय "${stream}" में, एक ऐसी स्थिति का वर्णन करें जहां आपको किसी बड़े प्रोजेक्ट में एक गंभीर समस्या या संकट का सामना करना पड़ा। आपका दृष्टिकोण क्या था?`;
-        
-        projectHint = "STAR विधि का उपयोग करें। अपने योगदान, उपयोग किए गए टूल और परिणामों पर ध्यान दें।";
-        skillsHint = "एक ठोस उदाहरण प्रदान करें जहां आपने इन तकनीकी उपकरणों का उपयोग करके किसी समस्या को हल किया हो।";
-        scenarioHint = "संचार, संसाधन प्रबंधन और समाधान के लिए उठाए गए कदमों पर चर्चा करें।";
-      }
-
-      customTailoredQuestions.push(
-        { q: projectQText, s: projectHint, d: "Hard", type: "long" },
-        { q: skillsQText, s: skillsHint, d: "Medium", type: "short" },
-        { q: scenarioQText, s: scenarioHint, d: "Medium", type: "long" }
-      );
+      // Inject skill-specific scenario questions from their real CV skills
+      skillsList.slice(0, 5).forEach((skill: any, idx: number) => {
+        const sName = typeof skill === "string" ? skill : skill.name;
+        if (sName && customTailoredQuestions.length < 8) {
+          if (idx % 2 === 0) {
+            customTailoredQuestions.push({
+              q: `Regarding your proficiency in "${sName}": explain an advanced troubleshooting workflow or optimization technique you apply when producing high-standard work under strict deadlines.`,
+              s: `Cite a concrete professional workflow or technique specific to ${sName}.`,
+              d: idx < 2 ? "Easy" : "Medium",
+              type: "short"
+            });
+          } else {
+            customTailoredQuestions.push({
+              q: `How do you evaluate industry standards, quality control, and client/stakeholder requirements when executing tasks using "${sName}"? Provide a specific practical scenario.`,
+              s: "Describe specific quality benchmarks and problem-solving steps.",
+              d: "Medium",
+              type: "long"
+            });
+          }
+        }
+      });
     }
 
     // Shuffle the available generic fallback questions
     let shuffledGeneric = shuffleArray(fallbackQuestions);
     
-    // Combine custom tailored questions with generic fallbacks to make exactly 15 questions
+    // Combine custom tailored questions with domain fallbacks to make exactly 15 questions
     let finalFallbackList = [...customTailoredQuestions];
     const neededCount = 15 - finalFallbackList.length;
     if (neededCount > 0) {
@@ -1495,30 +1519,32 @@ app.post("/api/interview/questions", async (req, res) => {
         - Core Academic Subjects: ${subjectsString}
         - Key Projects/Experience: ${projectDetails}
         - Knowledge Depth Summary: ${analysis?.knowledgeDepth || "Demonstrated professional capability."}
-        - Target Domain Focus: ${analysis?.careerDomain || "General placement"}
+        - Target Domain Focus: ${analysis?.careerDomain || stream}
         - Requested Assessment Language: ${language}
 
-        Your goal is to thoroughly prepare this student for a competitive real-world job interview at an elite organization or firm matching their exact career profile (e.g. elite hospital or health institution for medical candidates, prestigious law firm or advocacy chamber for legal candidates, top-tier tech firm for engineering/computer science candidates, corporate business office for management, etc.).
-        ${difficultyRule}
-        ${pastQuestionsRule}
-        
-        CRITICAL RESUME-ONLY SCOPE RULE:
-        - All 15 questions MUST be strictly based on the provided resume details: detected skills, listed academic subjects, stream/qualification, and key projects.
-        - Under no circumstances should you generate questions about external, general trivia, or concepts that have zero connection to this specific CV.
-        - The candidate must not be able to complain that "questions came from outside my CV". Every single question must trace directly back to a skill, subject, project, or stream listed in their profile.
-        - This rule applies universally regardless of the candidate's stream: Doctor, Engineer, General Honours, Arts, Science, Commerce, Lawyer, etc. Craft precise, highly relevant questions matching their exact qualifications.
-        - DO NOT ask any coding, programming, database, or engineering questions to non-engineering candidates (like Doctors, Arts, Commerce, or General Honours students). Keep questions 100% strictly relevant to their field and listed CV content.
+        CRITICAL CV & SUBJECT ALIGNMENT (ABSOLUTE MANDATE - NO OUT-OF-CV / NO OUT-OF-SUBJECT QUESTIONS):
+        - All 15 questions MUST be 100% strictly and exclusively based on the candidate's actual CV details: their detected resume skills (${skillsString}), their specific key projects (${projectDetails}), their declared stream (${stream}), and their target domain (${analysis?.careerDomain || stream}).
+        - Under NO circumstances should you generate questions outside their declared subject or CV domain.
+        - STRICT RULE: Do NOT ask generic server architecture, distributed databases, cloud systems, microservices, or IT backend infrastructure questions unless the candidate's CV explicitly lists distributed backend/cloud engineering skills.
+        - For a candidate whose CV specializes in Video Editing, Digital Media, Motion Graphics, Content Creation, Graphic Design (e.g. Adobe Premiere Pro, DaVinci Resolve, After Effects, Photoshop, Social Media Strategy):
+          EVERY SINGLE QUESTION must rigorously test their actual skills in video editing, color grading, motion design, video codecs, audio mastering, visual storytelling, and their specific portfolio campaigns! NEVER ask them cloud servers, database internals, or IT infrastructure!
+        - For a candidate whose CV specializes in Web Development (React, JavaScript, HTML, CSS):
+          Test frontend architecture, DOM lifecycle, CSS rendering, responsive design, and their web projects.
+        - For a candidate whose CV is in Education / Teaching:
+          Test educational pedagogy, classroom leadership, learning outcomes, and subject teaching methods.
+        - For a candidate whose CV is in Medical / Healthcare:
+          Test clinical cases, diagnostic criteria, pharmacology, and patient care.
+        - For a candidate whose CV is in Law:
+          Test legal precedents, statutory provisions, and litigation advocacy.
+        - For a candidate whose CV is in Business / Commerce:
+          Test financial management, taxation, marketing strategy, and business analytics.
 
         CRITICAL HIGH-LEVEL AND DEPTH RULE:
-        - Under no circumstances should you generate simple, entry-level, or basic definition questions (e.g., avoid basic questions like "What is React?", "What is inheritance?", or simple academic trivia).
-        - Every question must be highly intellectual, advanced, and conceptually challenging, matching professional board-level and interview-level standards.
-        - For computer science/tech: Focus on high-concurrency race conditions, performance optimization bottlenecks, distributed system architecture trade-offs, real-time sync protocols, edge cases of asynchronous execution, memory leak profiling, or deep database query optimizations under heavy load.
-        - For medical/nursing: Focus on complex clinical scenarios, acute multi-system disease management, advanced pharmacology, severe drug-drug interactions, or critical bioethics in terminal cases.
-        - For legal/law: Focus on complex multi-jurisdictional contract disputes, subtle jurisprudential interpretations, high-stakes litigation procedures, or advanced constitutional defenses.
-        - For management/arts/general honours: Focus on deep strategic enterprise problem solving, advanced market optimization, crisis leadership, structural organizational transformation, or advanced core conceptual applications of their listed academic stream subjects.
-
-        CRITICAL INDUSTRY ACCURACY RULE:
-        - Under no circumstances should you ask generic tech questions to a doctor, or clinical questions to a lawyer. Tie every single question strictly to their specific qualification, stream, listed subjects, and exact projects or field of study.
+        - Under no circumstances should you generate simple, entry-level, or basic definition questions (e.g., avoid basic questions like "What is video editing?", "What is React?", "What is inheritance?", or elementary trivia).
+        - Every question must be highly intellectual, advanced, situational, and conceptually challenging, matching senior corporate/board interview standards for their specific CV skills.
+        - Formulate realistic, scenario-based, troubleshooting, and architectural/methodological questions that require deep conceptual mastery of the skills and projects on their CV.
+        ${difficultyRule}
+        ${pastQuestionsRule}
 
         CRITICAL ASSESSMENT LANGUAGE RULE:
         - You MUST write the complete questions ("q"), the hint advice ("s"), and options ("options" if MCQ) inside the specified language: ${language}.
@@ -1527,7 +1553,6 @@ app.post("/api/interview/questions", async (req, res) => {
         - If language is "English" (or unspecified), write in English.
 
         The 15 questions MUST be graded sequentially in difficulty from Easy to Hard and include a mix of MCQ (Multiple Choice Questions with options), Short Answer, and Long Answer types:
-        
         - Questions 1 to 5: Easy. Grade 1 and 4 as MCQ (with exactly 4 options A, B, C, D in an "options" array), Grade 2, 3, 5 as Short or Long Answer.
         - Questions 6 to 10: Medium. Grade 6 and 9 as MCQ (with exactly 4 options A, B, C, D in an "options" array), Grade 7, 8, 10 as Short or Long Answer.
         - Questions 11 to 15: Hard. Grade 11 as MCQ (with exactly 4 options A, B, C, D in an "options" array), Grade 12, 13, 14, 15 as Short or Long Answer.
@@ -1570,7 +1595,29 @@ app.post("/api/interview/questions", async (req, res) => {
       let round = "General Interview Round";
       let roundType = "general";
 
-      if (isEngineering) {
+      if (isVideoOrMedia) {
+        if (index < 5) {
+          round = "Media & Post-Production Basics Round";
+          roundType = "media_basics";
+        } else if (index < 10) {
+          round = "Editing & Creative Workflow Round";
+          roundType = "media_workflow";
+        } else {
+          round = "Portfolio & Client Delivery Round";
+          roundType = "media_portfolio";
+        }
+      } else if (isFrontendOrWeb) {
+        if (index < 5) {
+          round = "Frontend Architecture Basics Round";
+          roundType = "frontend_basics";
+        } else if (index < 10) {
+          round = "Web Engineering & Performance Round";
+          roundType = "frontend_performance";
+        } else {
+          round = "Project & Technical Delivery Round";
+          roundType = "frontend_delivery";
+        }
+      } else if (isEngineering) {
         if (index < 5) {
           round = "Technical Basics Round";
           roundType = "technical_basics";
@@ -1664,8 +1711,19 @@ app.post("/api/interview/evaluate", async (req, res) => {
     let grammarSum = 0;
     let answeredCount = 0;
 
-    // Technical vocabulary to check domain depth
-    const techKeywords = ["react", "node", "database", "sql", "api", "html", "css", "js", "typescript", "algorithm", "complexity", "server", "http", "locking", "websockets", "redis", "query", "index", "optimization", "component", "state", "effect", "schema"];
+    // Domain vocabulary to check depth across all career streams
+    const baseDomainKeywords = [
+      "react", "node", "database", "sql", "api", "html", "css", "js", "typescript", "algorithm", "server", "architecture",
+      "video", "premiere", "resolve", "after effects", "motion", "codec", "render", "timeline", "color", "audio", "lufs", "grading", "davinci",
+      "clinical", "patient", "diagnosis", "therapy", "pharmacology", "syndrome", "acute", "hospital", "acls", "sepsis",
+      "contract", "section", "article", "precedent", "jurisprudence", "statute", "court", "plaintiff", "damages",
+      "curriculum", "pedagogy", "student", "assessment", "learning", "classroom", "instruction", "bloom",
+      "strategy", "management", "financial", "revenue", "market", "budget", "operations", "stakeholder", "wacc", "npv"
+    ];
+    const domainKeywords = [
+      ...baseDomainKeywords,
+      ...skillsList.map((s: any) => (typeof s === "string" ? s : s.name).toLowerCase())
+    ];
 
     questionsAndAnswers.forEach(qna => {
       const qText = (qna.question || "").toLowerCase();
@@ -1695,13 +1753,13 @@ app.post("/api/interview/evaluate", async (req, res) => {
       }
 
       // Check for obviously wrong, repetitive, or garbage answers
-      // For example, if there is absolutely no overlap with key technical vocabulary OR the question words, and it's too short, penalize to 0
-      const matchesTech = techKeywords.some(kw => lowerAns.includes(kw));
-      const matchesResume = skillsList.some((s: any) => lowerAns.includes(s.name.toLowerCase()));
+      // For example, if there is absolutely no overlap with key domain vocabulary OR the question words, and it's too short, penalize to 0
+      const matchesDomain = domainKeywords.some(kw => lowerAns.includes(kw));
+      const matchesResume = skillsList.some((s: any) => lowerAns.includes((typeof s === "string" ? s : s.name).toLowerCase()));
       const qWords = qText.split(/\s+/).filter(w => w.length > 4);
       const matchesQuestion = qWords.some(qw => lowerAns.includes(qw));
 
-      if (!matchesTech && !matchesResume && !matchesQuestion && wordCount < 8) {
+      if (!matchesDomain && !matchesResume && !matchesQuestion && wordCount < 8) {
         // Obvious off-topic or wrong/gibberish answer, award 0 marks
         return;
       }
@@ -1711,12 +1769,13 @@ app.post("/api/interview/evaluate", async (req, res) => {
 
       // Check keyword matches
       let keywordMatches = 0;
-      techKeywords.forEach(kw => {
+      domainKeywords.forEach(kw => {
         if (lowerAns.includes(kw)) keywordMatches++;
       });
       // Also check if any resume skills are mentioned
       skillsList.forEach((s: any) => {
-        if (lowerAns.includes(s.name.toLowerCase())) {
+        const sName = (typeof s === "string" ? s : s.name).toLowerCase();
+        if (lowerAns.includes(sName)) {
           keywordMatches++;
         }
       });
