@@ -1,7 +1,3 @@
-app.get('/robots.txt', (req, res) => {
-    res.type('text/plain');
-    res.send("User-agent: *\nAllow: /");
-});
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -424,6 +420,10 @@ function translateQuestion(qObj: any, language: string): any {
 }
 
 const app = express();
+app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain');
+    res.send("User-agent: *\nAllow: /");
+});
 // Safely resolve PORT: bind to 3000 by default and in AI Studio container, or to dynamic process.env.PORT when deployed (e.g. Render)
 const PORT = (process.env.PORT && process.env.PORT !== "8080") ? parseInt(process.env.PORT, 10) : 3000;
 
