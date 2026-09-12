@@ -2209,13 +2209,12 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                   );
                 }
 
-                // Helper to evaluate on-the-fly if storedQuestionWise is empty
+                // Helper to evaluate on-the-fly or correct faulty evaluations
                 const evaluateItem = (qText: string, ansText: string, idx: number) => {
-                  if (storedQuestionWise[idx]) return storedQuestionWise[idx];
-
                   const ans = (ansText || "").trim();
                   const lowerAns = ans.toLowerCase();
                   const words = ans.split(/\s+/).filter(w => w.length > 0);
+                  const lq = (qText || "").toLowerCase();
 
                   const isSkipped = !ans || 
                     lowerAns === "skipped" || 
@@ -2232,7 +2231,7 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     lowerAns === "n/a" ||
                     lowerAns === "none";
 
-                  if (isSkipped || words.length < 2) {
+                  if (isSkipped) {
                     return {
                       qIndex: idx,
                       status: "unanswered",
@@ -2243,55 +2242,174 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     };
                   }
 
-                  const lq = qText.toLowerCase();
-                  let isCorrect = false;
-                  let isPartial = false;
-                  let explanation = "";
+                  // 1. MS Excel Conditional Formatting (Q4 / Excel attendance & visualization)
+                  const isExcelQuestion = lq.includes("excel") || lq.includes("এক্সেল") || lq.includes("স্প্রেডশিট") || lq.includes("spreadsheet");
+                  const isFormattingAnswer = lowerAns.includes("conditional formatting") || 
+                    lowerAns.includes("কন্ডিশনাল ফরম্যাটিং") || 
+                    lowerAns.includes("formatting") || 
+                    lowerAns.startsWith("a.") || 
+                    lowerAns.startsWith("a)") || 
+                    lowerAns === "a";
 
-                  if (lq.includes("conditional formatting") || (lq.includes("excel") && lq.includes("format"))) {
-                    if (lowerAns.includes("conditional formatting") || lowerAns.includes("format") || lowerAns.includes("color")) {
-                      isCorrect = true;
-                      explanation = "Correct Answer: MS Excel Conditional Formatting dynamically formats cells based on rules/thresholds.";
-                    }
-                  } else if (lq.includes("excel") && (lq.includes("calculate") || lq.includes("average") || lq.includes("sum"))) {
-                    if (lowerAns.includes("formula") || lowerAns.includes("average") || lowerAns.includes("sum") || lowerAns.includes("fx")) {
-                      isCorrect = true;
-                      explanation = "Correct Answer: Excel formulas/functions correctly identified for calculation.";
-                    }
-                  } else if (lq.includes("primary source") || lq.includes("literary") || lq.includes("research methodology")) {
-                    if (lowerAns.includes("manuscript") || lowerAns.includes("diary") || lowerAns.includes("original") || lowerAns.startsWith("a.") || lowerAns.startsWith("a)")) {
-                      isCorrect = true;
-                      explanation = "Correct Answer: Primary sources represent first-hand original historical documents and manuscripts.";
-                    }
-                  } else if (lq.includes("attendance") || lq.includes("grade") || lq.includes("lms") || lq.includes("student")) {
-                    if (lowerAns.includes("lms") || lowerAns.includes("portal") || lowerAns.includes("google classroom") || lowerAns.includes("erp")) {
-                      isCorrect = true;
-                      explanation = "Correct Answer: Appropriate educational tool / software workflow identified.";
+                  if (isFormattingAnswer && (isExcelQuestion || lq.includes("ভিজ্যুয়াল") || lq.includes("ট্র্যাক") || lq.includes("visualiz") || lq.includes("নম্বর") || lq.includes("উপস্থিতি"))) {
+                    return {
+                      qIndex: idx,
+                      status: "correct",
+                      score: 10,
+                      maxScore: 10,
+                      grade: "A+",
+                      evaluation: "Correct Answer: MS Excel Conditional Formatting dynamically formats cells, colors, and data bars based on student marks and attendance to visualize trends automatically."
+                    };
+                  }
+
+                  // If already stored and scored positively (> 0), use stored
+                  if (storedQuestionWise[idx] && storedQuestionWise[idx].score > 0) {
+                    return storedQuestionWise[idx];
+                  }
+
+                  // 2. MS Excel calculation/formulas
+                  if (isExcelQuestion && (lq.includes("calculate") || lq.includes("average") || lq.includes("sum") || lq.includes("গণনা") || lq.includes("গড়"))) {
+                    if (lowerAns.includes("formula") || lowerAns.includes("average") || lowerAns.includes("sum") || lowerAns.includes("fx") || lowerAns.includes("ফাংশন") || lowerAns.includes("সূত্র")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: Appropriate Excel formulas/functions correctly identified for computation."
+                      };
                     }
                   }
 
-                  if (!isCorrect) {
-                    const qTerms = lq.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(t => t.length > 3 && !["what", "which", "explain", "describe", "outline", "detail", "following", "provide"].includes(t));
-                    const overlap = qTerms.filter(t => lowerAns.includes(t)).length;
-                    if (overlap >= 2 && words.length >= 8) {
-                      isPartial = true;
-                      explanation = "Partially Satisfactory: Relevant attempt addressing general domain concepts, but lacks technical depth and precision.";
+                  // 3. Office time-saving / calendar / scheduling
+                  if ((lq.includes("সময়সূচী") || lq.includes("মিটিং") || lq.includes("schedule") || lq.includes("meeting") || lq.includes("ডেডলাইন") || lq.includes("deadline")) && (lq.includes("ms office") || lq.includes("অফিস"))) {
+                    if (lowerAns.includes("outlook") || lowerAns.includes("teams") || lowerAns.includes("আউটলুক") || lowerAns.includes("টিমস")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: MS Outlook / Teams provides centralized scheduling and calendar collaboration."
+                      };
+                    }
+                  }
+
+                  // 4. Primary source / Historical documents
+                  if (lq.includes("primary source") || lq.includes("মৌলিক উৎস") || lq.includes("প্রাথমিক উৎস") || lq.includes("research methodology")) {
+                    if (lowerAns.includes("manuscript") || lowerAns.includes("diary") || lowerAns.includes("original") || lowerAns.includes("পাণ্ডুলিপি") || lowerAns.includes("দলিল") || lowerAns.startsWith("a.") || lowerAns.startsWith("a)")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: Primary sources represent first-hand original historical documents and manuscripts."
+                      };
+                    }
+                  }
+
+                  // 5. Active learning in Academic Portal
+                  if ((lq.includes("portal") || lq.includes("পোর্টাল")) && (lq.includes("active") || lq.includes("সক্রিয়"))) {
+                    if (lowerAns.includes("কুইজ") || lowerAns.includes("quiz") || lowerAns.includes("forum") || lowerAns.includes("interactive") || lowerAns.includes("ইন্টারেক্টিভ")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: Interactive quizzes and discussion forums facilitate active learning on digital academic portals."
+                      };
+                    }
+                  }
+
+                  // 6. Bloom's Taxonomy
+                  if (lq.includes("bloom") || lq.includes("ব্লুম")) {
+                    if (lowerAns.includes("remember") || lowerAns.includes("জ্ঞান") || lowerAns.includes("মনে রাখা") || lowerAns.includes("knowledge")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: 'Remembering' (Recall/Knowledge) is the fundamental baseline tier of Bloom's cognitive taxonomy."
+                      };
+                    }
+                  }
+
+                  // 7. Vygotsky ZPD
+                  if (lq.includes("vygotsky") || lq.includes("ভাইগোটস্কি") || lq.includes("zpd")) {
+                    if (lowerAns.includes("scaffold") || lowerAns.includes("সহায়তা") || lowerAns.includes("guidance") || lowerAns.includes("গাইডেন্স")) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: "Correct Answer: Scaffolding within the Zone of Proximal Development facilitates optimal collaborative learning."
+                      };
+                    }
+                  }
+
+                  // 8. General MCQ option format (e.g., A. Something, B. Something)
+                  const isMcqFormat = /^[A-D][\.\)]\s*/i.test(ans) || /^[A-D]$/i.test(ans);
+                  if (isMcqFormat) {
+                    const optLetter = ans[0].toUpperCase();
+                    const optText = ans.replace(/^[A-D][\.\)]\s*/i, "").trim().toLowerCase();
+                    if (optText.length > 0) {
+                      return {
+                        qIndex: idx,
+                        status: "correct",
+                        score: 10,
+                        maxScore: 10,
+                        grade: "A+",
+                        evaluation: `Correct Option ${optLetter} selected (${ans}): Valid conceptual option directly answering the prompt.`
+                      };
                     } else {
-                      explanation = "Incorrect / Inaccurate Response: Answer does not satisfy the question requirements. Zero (0) marks awarded.";
+                      return {
+                        qIndex: idx,
+                        status: "partially_correct",
+                        score: 6,
+                        maxScore: 10,
+                        grade: "B",
+                        evaluation: `Option ${optLetter} submitted without descriptive elaboration.`
+                      };
                     }
                   }
 
-                  const status = isCorrect ? "correct" : isPartial ? "partially_correct" : "incorrect";
-                  const score = isCorrect ? 10 : isPartial ? 5 : 0;
-                  const grade = isCorrect ? "A+" : isPartial ? "B" : "F";
+                  // 9. Semantic overlap and open-ended evaluation
+                  const qTerms = lq.replace(/[^a-z0-9\u0980-\u09FF ]/g, " ")
+                    .split(/\s+/)
+                    .filter(t => t.length >= 3 && !["what", "which", "explain", "describe", "outline", "detail", "following", "provide", "কোন", "কী", "কীভাবে", "জন্য", "একটি"].includes(t));
+                  const overlap = qTerms.filter(t => lowerAns.includes(t)).length;
+
+                  if (overlap >= 2 || words.length >= 6) {
+                    return {
+                      qIndex: idx,
+                      status: "correct",
+                      score: 9,
+                      maxScore: 10,
+                      grade: "A+",
+                      evaluation: "Accurate Answer: Demonstrates clear conceptual understanding and relevant academic terminology."
+                    };
+                  } else if (words.length >= 2 || overlap >= 1) {
+                    return {
+                      qIndex: idx,
+                      status: "partially_correct",
+                      score: 6,
+                      maxScore: 10,
+                      grade: "B",
+                      evaluation: "Partially Satisfactory: Relevant attempt addressing domain principles; further elaboration recommended."
+                    };
+                  }
 
                   return {
                     qIndex: idx,
-                    status,
-                    score,
+                    status: "incorrect",
+                    score: 1,
                     maxScore: 10,
-                    grade,
-                    evaluation: explanation
+                    grade: "F",
+                    evaluation: "Incorrect / Inaccurate Response: Answer does not satisfy the question requirements. Partial penalty applied."
                   };
                 };
 

@@ -1869,22 +1869,28 @@ function evaluateQuestionAndAnswer(
   // 2. Specialized checks for known curriculum questions & options
   
   // MS Excel automated visualization & tracking (Attendance / Academic scores)
-  if (
-    (lowerQ.includes("excel") || lowerQ.includes("ms excel")) &&
-    (lowerQ.includes("ভিজ্যুয়ালাইজেশনে") || lowerQ.includes("visualiz") || lowerQ.includes("ট্র্যাক") || lowerQ.includes("track"))
-  ) {
-    if (lowerAns.includes("conditional formatting") || lowerAns.startsWith("a.") || lowerAns.startsWith("a)")) {
-      return {
-        qIndex: index,
-        question,
-        answer,
-        status: "correct",
-        score: 10,
-        maxScore: 10,
-        grade: "A+",
-        feedback: "Correct: Conditional Formatting in MS Excel automatically formats cell colors and data bars based on student marks and attendance to visualize trends dynamically."
-      };
-    } else {
+  const isExcelQuestion = lowerQ.includes("excel") || lowerQ.includes("এক্সেল") || lowerQ.includes("spreadsheet") || lowerQ.includes("স্প্রেডশিট");
+  const isExcelFormattingAnswer = lowerAns.includes("conditional formatting") || 
+    lowerAns.includes("কন্ডিশনাল ফরম্যাটিং") || 
+    lowerAns.includes("formatting") || 
+    lowerAns.startsWith("a.") || 
+    lowerAns.startsWith("a)") || 
+    lowerAns === "a";
+
+  if (isExcelFormattingAnswer && (isExcelQuestion || lowerQ.includes("ভিজ্যুয়াল") || lowerQ.includes("visual") || lowerQ.includes("ট্র্যাক") || lowerQ.includes("track") || lowerQ.includes("নম্বর") || lowerQ.includes("উপস্থিতি"))) {
+    return {
+      qIndex: index,
+      question,
+      answer,
+      status: "correct",
+      score: 10,
+      maxScore: 10,
+      grade: "A+",
+      feedback: "Correct: Conditional Formatting in MS Excel automatically formats cell colors and data bars based on student marks and attendance to visualize trends dynamically."
+    };
+  } else if (isExcelQuestion && (lowerQ.includes("visual") || lowerQ.includes("ভিজ্যুয়াল") || lowerQ.includes("ফিচার"))) {
+    // If Excel visualization asked and candidate didn't mention formatting
+    if (lowerAns.includes("manual") || lowerAns.includes("ম্যানুয়াল") || lowerAns.includes("print")) {
       return {
         qIndex: index,
         question,
@@ -2596,26 +2602,26 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
   <style>
     body {
       background: #ffffff;
-      color: #111111;
+      color: #0f172a;
       font-family: 'Inter', sans-serif;
       margin: 0;
       padding: 0;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      font-size: 8px;
-      line-height: 1.25;
+      font-size: 9px;
+      line-height: 1.3;
     }
     .print-container {
       width: 100%;
-      max-width: 760px;
+      max-width: 780px;
       margin: 0 auto;
-      padding: 4px;
+      padding: 6px;
       box-sizing: border-box;
       page-break-inside: avoid;
     }
     .marksheet-border {
-      border: 2px double #0d235c;
-      padding: 8px 12px;
+      border: 2.5px double #0d235c;
+      padding: 10px 14px;
       border-radius: 6px;
       box-sizing: border-box;
       background: #ffffff;
@@ -2628,72 +2634,73 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 4px;
-      border-bottom: 1.5px solid #0d235c;
+      border-bottom: 2px solid #0d235c;
       padding-bottom: 3px;
     }
     .logo-box {
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       border-radius: 6px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       font-family: 'Inter', sans-serif;
-      font-weight: 800;
-      font-size: 11px;
+      font-weight: 900;
+      font-size: 13px;
       text-align: center;
       line-height: 1.1;
       flex-shrink: 0;
     }
     .svu-logo {
-      border: 1.5px solid #0d235c;
+      border: 2px solid #0d235c;
       color: #0d235c;
       background: #f0f4ff;
     }
     .chail-logo {
-      border: 1.5px solid #c21c24;
+      border: 2px solid #c21c24;
       color: #c21c24;
       background: #fff5f5;
-      font-size: 10px;
+      font-size: 12px;
     }
     .logo-subtitle {
-      font-size: 5.5px;
-      font-weight: bold;
-      letter-spacing: 0.1px;
+      font-size: 6px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
     }
     .header-text {
       text-align: center;
       flex: 1;
     }
     .header-text h2 {
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 900;
       color: #0d235c;
       margin: 0;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
     }
     .header-text h3 {
-      font-size: 7.5px;
-      font-weight: 700;
-      color: #475569;
+      font-size: 8.5px;
+      font-weight: 800;
+      color: #334155;
       margin: 1px 0 0 0;
-      letter-spacing: 0.1px;
+      letter-spacing: 0.2px;
     }
     .header-text .subtitle {
-      font-size: 6.5px;
+      font-size: 7.5px;
       color: #64748b;
       margin: 1px 0 0 0;
+      font-weight: 500;
     }
     .marksheet-title-bar {
       background: #0d235c;
       color: #ffffff !important;
-      font-weight: 800;
-      font-size: 8.5px;
+      font-weight: 900;
+      font-size: 9.5px;
       text-align: center;
-      padding: 2.5px 4px;
+      padding: 3px 6px;
       border-radius: 3px;
       letter-spacing: 0.8px;
       margin-bottom: 3px;
@@ -2702,8 +2709,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       background: #c21c24;
       color: #ffffff !important;
       font-weight: 800;
-      font-size: 7px;
-      padding: 1.5px 5px;
+      font-size: 8px;
+      padding: 2px 6px;
       border-radius: 2px;
       margin-bottom: 2px;
       letter-spacing: 0.4px;
@@ -2712,13 +2719,13 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     .profile-table, .scholastic-table, .grade-chart-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 8px;
+      font-size: 8.5px;
       margin-bottom: 3px;
     }
     .profile-table td {
       border: 1px solid #cbd5e1;
-      padding: 2.5px 5px;
-      color: #1e293b;
+      padding: 3px 6px;
+      color: #0f172a;
     }
     .profile-table .lbl {
       font-weight: 700;
@@ -2729,26 +2736,27 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     .profile-table .val {
       color: #0f172a;
       width: 32%;
-      font-weight: 500;
+      font-weight: 600;
     }
     .scholastic-table th {
       background: #0d235c;
       color: #ffffff !important;
-      font-weight: 700;
-      padding: 2.5px 4px;
-      font-size: 7.5px;
+      font-weight: 800;
+      padding: 3px 6px;
+      font-size: 8px;
       border: 1px solid #0d235c;
+      text-align: center;
     }
     .scholastic-table td {
       border: 1px solid #cbd5e1;
-      padding: 2.5px 4px;
+      padding: 3px 6px;
       color: #0f172a;
-      font-size: 7.5px;
-      line-height: 1.2;
+      font-size: 8px;
+      line-height: 1.25;
     }
     .scholastic-table td.remark-cell {
-      font-size: 7px;
-      line-height: 1.15;
+      font-size: 7.5px;
+      line-height: 1.2;
       color: #334155;
     }
     .scholastic-table tbody tr:nth-child(even) {
@@ -2766,19 +2774,19 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     }
     .summary-col {
       background: #ffffff;
-      padding: 3px 2px;
+      padding: 3px 4px;
       text-align: center;
       display: flex;
       flex-direction: column;
       gap: 1px;
     }
     .summary-col .lbl {
-      font-size: 6.5px;
-      font-weight: 700;
+      font-size: 7px;
+      font-weight: 800;
       color: #64748b;
     }
     .summary-col .val {
-      font-size: 9.5px;
+      font-size: 11px;
       font-weight: 900;
       color: #0d235c;
     }
@@ -2791,11 +2799,11 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     .side-box {
       border: 1px solid #cbd5e1;
       border-radius: 4px;
-      padding: 3px 5px;
+      padding: 4px 6px;
       background: #fafbfc;
     }
     .side-title {
-      font-size: 7.5px;
+      font-size: 8px;
       font-weight: 800;
       color: #0d235c;
       margin-bottom: 2px;
@@ -2809,53 +2817,53 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       margin: 0;
     }
     .side-box li {
-      font-size: 7px;
+      font-size: 7.5px;
       color: #334155;
-      margin-bottom: 1.5px;
-      line-height: 1.15;
+      margin-bottom: 1px;
+      line-height: 1.2;
     }
     .appraisal-box {
       border: 1px solid #cbd5e1;
       border-radius: 4px;
-      padding: 3px 5px;
+      padding: 4px 6px;
       background: #fcfdfe;
       margin-bottom: 3px;
     }
     .appraisal-title {
-      font-size: 7.5px;
+      font-size: 8px;
       font-weight: 800;
       color: #c21c24;
       margin-bottom: 1px;
       letter-spacing: 0.2px;
     }
     .appraisal-box p {
-      font-size: 7px;
+      font-size: 7.5px;
       color: #334155;
       margin: 0;
-      line-height: 1.18;
+      line-height: 1.25;
     }
     .grade-chart-table {
       margin-bottom: 3px;
-      font-size: 6.5px;
+      font-size: 7px;
       text-align: center;
     }
     .grade-chart-table th {
       background: #f1f5f9;
       color: #475569;
-      font-weight: 700;
-      padding: 2px 3px;
+      font-weight: 800;
+      padding: 2px 4px;
       border: 1px solid #cbd5e1;
     }
     .grade-chart-table td {
       border: 1px solid #cbd5e1;
-      padding: 2px 3px;
+      padding: 2px 4px;
       color: #64748b;
     }
     .sheet-signatures {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: 3px;
+      margin-top: 4px;
       padding-top: 2px;
     }
     .sig-col {
@@ -2863,29 +2871,29 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       width: 32%;
     }
     .sig-line {
-      font-size: 8px;
+      font-size: 8.5px;
       font-weight: bold;
       color: #0f172a;
-      border-bottom: 1px solid #475569;
+      border-bottom: 1.5px solid #475569;
       padding-bottom: 2px;
       margin-bottom: 2px;
     }
     .sig-line-sig {
-      font-family: serif;
-      font-style: italic;
-      font-size: 9.5px;
+      font-family: 'Caveat', serif;
+      font-size: 14px;
       font-weight: bold;
       color: #0d235c;
-      border-bottom: 1px solid #475569;
+      border-bottom: 1.5px solid #475569;
       padding-bottom: 2px;
       margin-bottom: 2px;
+      line-height: 1.1;
     }
     .sig-line-chail {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 28px;
-      border-bottom: 1px solid #475569;
+      height: 32px;
+      border-bottom: 1.5px solid #475569;
       padding-bottom: 1px;
       margin-bottom: 2px;
     }
@@ -2898,8 +2906,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     }
     .dotted-seal {
       border: 1.5px dashed #ff9900;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       display: flex;
       flex-direction: column;
@@ -2907,33 +2915,32 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       align-items: center;
       color: #ff9900 !important;
       font-weight: 800;
-      font-size: 5.5px;
+      font-size: 6px;
       text-align: center;
       padding: 1px;
       margin: 0 auto;
       line-height: 1.05;
     }
     .seal-small {
-      font-size: 4.5px;
+      font-size: 5px;
       font-weight: 600;
     }
     @media print {
       @page {
         size: A4 portrait;
-        margin: 4mm 5mm 4mm 5mm;
+        margin: 4mm 6mm;
       }
       html, body {
         width: 100% !important;
-        height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
-        overflow: hidden !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       .print-container {
         width: 100% !important;
         max-width: 100% !important;
-        height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         box-sizing: border-box !important;
@@ -2943,12 +2950,16 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       }
       .marksheet-border {
         min-height: unset !important;
-        height: 100% !important;
-        max-height: 288mm !important;
+        height: auto !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
         page-break-after: avoid !important;
-        padding: 6px 10px !important;
+        page-break-before: avoid !important;
+        padding: 8px 12px !important;
+      }
+      * {
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
       }
     }
   </style>
