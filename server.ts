@@ -2602,8 +2602,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       padding: 0;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      font-size: 10px;
-      line-height: 1.35;
+      font-size: 8px;
+      line-height: 1.25;
     }
     .print-container {
       width: 100%;
@@ -2614,53 +2614,53 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       page-break-inside: avoid;
     }
     .marksheet-border {
-      border: 3px double #0d235c;
-      padding: 16px 20px;
-      border-radius: 8px;
+      border: 2px double #0d235c;
+      padding: 8px 12px;
+      border-radius: 6px;
       box-sizing: border-box;
       background: #ffffff;
-      min-height: 278mm;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
+      gap: 3px;
     }
     .sheet-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
+      gap: 8px;
+      margin-bottom: 4px;
       border-bottom: 1.5px solid #0d235c;
-      padding-bottom: 6px;
+      padding-bottom: 3px;
     }
     .logo-box {
-      width: 52px;
-      height: 52px;
-      border-radius: 8px;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       font-family: 'Inter', sans-serif;
       font-weight: 800;
-      font-size: 12px;
+      font-size: 11px;
       text-align: center;
       line-height: 1.1;
       flex-shrink: 0;
     }
     .svu-logo {
-      border: 2px solid #0d235c;
+      border: 1.5px solid #0d235c;
       color: #0d235c;
       background: #f0f4ff;
     }
     .chail-logo {
-      border: 2px solid #c21c24;
+      border: 1.5px solid #c21c24;
       color: #c21c24;
       background: #fff5f5;
-      font-size: 11px;
+      font-size: 10px;
     }
     .logo-subtitle {
-      font-size: 6px;
+      font-size: 5.5px;
       font-weight: bold;
       letter-spacing: 0.1px;
     }
@@ -2669,55 +2669,55 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       flex: 1;
     }
     .header-text h2 {
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 900;
       color: #0d235c;
       margin: 0;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
     }
     .header-text h3 {
-      font-size: 8px;
+      font-size: 7.5px;
       font-weight: 700;
       color: #475569;
-      margin: 2px 0 0 0;
+      margin: 1px 0 0 0;
       letter-spacing: 0.1px;
     }
     .header-text .subtitle {
-      font-size: 7px;
+      font-size: 6.5px;
       color: #64748b;
-      margin: 2px 0 0 0;
+      margin: 1px 0 0 0;
     }
     .marksheet-title-bar {
       background: #0d235c;
       color: #ffffff !important;
       font-weight: 800;
-      font-size: 10px;
+      font-size: 8.5px;
       text-align: center;
-      padding: 4px;
-      border-radius: 4px;
-      letter-spacing: 1px;
-      margin-bottom: 6px;
+      padding: 2.5px 4px;
+      border-radius: 3px;
+      letter-spacing: 0.8px;
+      margin-bottom: 3px;
     }
     .sheet-section-banner {
       background: #c21c24;
       color: #ffffff !important;
       font-weight: 800;
-      font-size: 8px;
-      padding: 3px 6px;
+      font-size: 7px;
+      padding: 1.5px 5px;
       border-radius: 2px;
-      margin-bottom: 4px;
-      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+      letter-spacing: 0.4px;
       width: fit-content;
     }
     .profile-table, .scholastic-table, .grade-chart-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 9px;
-      margin-bottom: 6px;
+      font-size: 8px;
+      margin-bottom: 3px;
     }
     .profile-table td {
       border: 1px solid #cbd5e1;
-      padding: 4px 6px;
+      padding: 2.5px 5px;
       color: #1e293b;
     }
     .profile-table .lbl {
@@ -2735,13 +2735,21 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       background: #0d235c;
       color: #ffffff !important;
       font-weight: 700;
-      padding: 4px 6px;
+      padding: 2.5px 4px;
+      font-size: 7.5px;
       border: 1px solid #0d235c;
     }
     .scholastic-table td {
       border: 1px solid #cbd5e1;
-      padding: 4px 6px;
+      padding: 2.5px 4px;
       color: #0f172a;
+      font-size: 7.5px;
+      line-height: 1.2;
+    }
+    .scholastic-table td.remark-cell {
+      font-size: 7px;
+      line-height: 1.15;
+      color: #334155;
     }
     .scholastic-table tbody tr:nth-child(even) {
       background: #f8fbff;
@@ -2751,49 +2759,49 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       grid-template-columns: repeat(4, 1fr);
       gap: 1px;
       background: #0d235c;
-      border: 1.5px solid #0d235c;
-      border-radius: 6px;
+      border: 1px solid #0d235c;
+      border-radius: 4px;
       overflow: hidden;
-      margin-bottom: 6px;
+      margin-bottom: 3px;
     }
     .summary-col {
       background: #ffffff;
-      padding: 5px;
+      padding: 3px 2px;
       text-align: center;
       display: flex;
       flex-direction: column;
       gap: 1px;
     }
     .summary-col .lbl {
-      font-size: 7.5px;
+      font-size: 6.5px;
       font-weight: 700;
       color: #64748b;
     }
     .summary-col .val {
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 900;
       color: #0d235c;
     }
     .strengths-dev-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 6px;
+      gap: 6px;
+      margin-bottom: 3px;
     }
     .side-box {
       border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px;
+      border-radius: 4px;
+      padding: 3px 5px;
       background: #fafbfc;
     }
     .side-title {
-      font-size: 8.5px;
+      font-size: 7.5px;
       font-weight: 800;
       color: #0d235c;
-      margin-bottom: 4px;
-      border-bottom: 1.5px solid #cbd5e1;
-      padding-bottom: 2px;
-      letter-spacing: 0.3px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 1px;
+      letter-spacing: 0.2px;
     }
     .side-box ul {
       list-style: none;
@@ -2801,96 +2809,97 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       margin: 0;
     }
     .side-box li {
-      font-size: 8px;
+      font-size: 7px;
       color: #334155;
-      margin-bottom: 2px;
-      line-height: 1.25;
+      margin-bottom: 1.5px;
+      line-height: 1.15;
     }
     .appraisal-box {
       border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px;
+      border-radius: 4px;
+      padding: 3px 5px;
       background: #fcfdfe;
-      margin-bottom: 6px;
+      margin-bottom: 3px;
     }
     .appraisal-title {
-      font-size: 8.5px;
+      font-size: 7.5px;
       font-weight: 800;
       color: #c21c24;
-      margin-bottom: 2px;
-      letter-spacing: 0.3px;
+      margin-bottom: 1px;
+      letter-spacing: 0.2px;
     }
     .appraisal-box p {
-      font-size: 8px;
+      font-size: 7px;
       color: #334155;
       margin: 0;
-      line-height: 1.35;
+      line-height: 1.18;
     }
     .grade-chart-table {
-      margin-bottom: 6px;
-      font-size: 7.5px;
+      margin-bottom: 3px;
+      font-size: 6.5px;
       text-align: center;
     }
     .grade-chart-table th {
       background: #f1f5f9;
       color: #475569;
       font-weight: 700;
-      padding: 3px;
+      padding: 2px 3px;
       border: 1px solid #cbd5e1;
     }
     .grade-chart-table td {
       border: 1px solid #cbd5e1;
-      padding: 3px;
+      padding: 2px 3px;
       color: #64748b;
     }
     .sheet-signatures {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: 10px;
+      margin-top: 3px;
+      padding-top: 2px;
     }
     .sig-col {
       text-align: center;
       width: 32%;
     }
     .sig-line {
-      font-size: 9px;
+      font-size: 8px;
       font-weight: bold;
       color: #0f172a;
       border-bottom: 1px solid #475569;
-      padding-bottom: 3px;
-      margin-bottom: 3px;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
     }
     .sig-line-sig {
       font-family: serif;
       font-style: italic;
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: bold;
       color: #0d235c;
       border-bottom: 1px solid #475569;
-      padding-bottom: 3px;
-      margin-bottom: 3px;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
     }
     .sig-line-chail {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 42px;
+      height: 28px;
       border-bottom: 1px solid #475569;
-      padding-bottom: 2px;
-      margin-bottom: 3px;
+      padding-bottom: 1px;
+      margin-bottom: 2px;
     }
     .sig-lbl {
-      font-size: 7.5px;
+      font-size: 7px;
       color: #64748b;
       text-transform: uppercase;
       font-weight: bold;
       letter-spacing: 0.3px;
     }
     .dotted-seal {
-      border: 2px dashed #ff9900;
-      width: 58px;
-      height: 58px;
+      border: 1.5px dashed #ff9900;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       display: flex;
       flex-direction: column;
@@ -2898,28 +2907,48 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       align-items: center;
       color: #ff9900 !important;
       font-weight: 800;
-      font-size: 7px;
+      font-size: 5.5px;
       text-align: center;
-      padding: 2px;
+      padding: 1px;
       margin: 0 auto;
-      line-height: 1.1;
+      line-height: 1.05;
     }
     .seal-small {
-      font-size: 5px;
+      font-size: 4.5px;
       font-weight: 600;
     }
     @media print {
       @page {
         size: A4 portrait;
-        margin: 4mm 6mm;
+        margin: 4mm 5mm 4mm 5mm;
       }
-      body {
-        margin: 0;
-        padding: 0;
-        background: #ffffff;
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        overflow: hidden !important;
       }
       .print-container {
-        padding: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        page-break-before: avoid !important;
+      }
+      .marksheet-border {
+        min-height: unset !important;
+        height: 100% !important;
+        max-height: 288mm !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        padding: 6px 10px !important;
       }
     }
   </style>
@@ -3003,35 +3032,35 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
             <td>10</td>
             <td><b>${(scores.confidence.score / 10).toFixed(1)}</b></td>
             <td><b>${getGrade(scores.confidence.score)}</b></td>
-            <td>${scores.confidence.remark}</td>
+            <td class="remark-cell">${scores.confidence.remark}</td>
           </tr>
           <tr>
             <td><b>Explanation Structure & Clarity</b></td>
             <td>10</td>
             <td><b>${(scores.clarity.score / 10).toFixed(1)}</b></td>
             <td><b>${getGrade(scores.clarity.score)}</b></td>
-            <td>${scores.clarity.remark}</td>
+            <td class="remark-cell">${scores.clarity.remark}</td>
           </tr>
           <tr>
             <td><b>Relevance & Context Match</b></td>
             <td>10</td>
             <td><b>${(scores.relevance.score / 10).toFixed(1)}</b></td>
             <td><b>${getGrade(scores.relevance.score)}</b></td>
-            <td>${scores.relevance.remark}</td>
+            <td class="remark-cell">${scores.relevance.remark}</td>
           </tr>
           <tr>
             <td><b>Technical Depth & Domain Knowledge</b></td>
             <td>10</td>
             <td><b>${(scores.technicalDepth.score / 10).toFixed(1)}</b></td>
             <td><b>${getGrade(scores.technicalDepth.score)}</b></td>
-            <td>${scores.technicalDepth.remark}</td>
+            <td class="remark-cell">${scores.technicalDepth.remark}</td>
           </tr>
           <tr>
             <td><b>Grammar, Sentence Phrasing & Vocabulary</b></td>
             <td>10</td>
             <td><b>${(scores.grammar.score / 10).toFixed(1)}</b></td>
             <td><b>${getGrade(scores.grammar.score)}</b></td>
-            <td>${scores.grammar.remark}</td>
+            <td class="remark-cell">${scores.grammar.remark}</td>
           </tr>
         </tbody>
       </table>
