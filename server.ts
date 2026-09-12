@@ -1,3 +1,7 @@
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send("User-agent: *\nAllow: /");
+});
 import express from "express";
 import path from "path";
 import fs from "fs";
