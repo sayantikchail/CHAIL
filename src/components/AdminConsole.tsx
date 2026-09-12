@@ -2222,10 +2222,15 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                     lowerAns === "skip" || 
                     lowerAns === "no answer" || 
                     lowerAns === "no response provided." ||
+                    lowerAns === "no response provided" ||
+                    lowerAns === "no response" ||
                     lowerAns === "i do not know" ||
                     lowerAns === "dont know" ||
                     lowerAns === "don't know" ||
-                    lowerAns === "na";
+                    lowerAns === "no idea" ||
+                    lowerAns === "na" ||
+                    lowerAns === "n/a" ||
+                    lowerAns === "none";
 
                   if (isSkipped || words.length < 2) {
                     return {
@@ -2234,7 +2239,7 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                       score: 0,
                       maxScore: 10,
                       grade: "F",
-                      evaluation: "Question was skipped or left unattempted. Zero marks awarded."
+                      evaluation: "Question was skipped or left blank by candidate. Zero (0) marks awarded."
                     };
                   }
 
@@ -2246,33 +2251,38 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                   if (lq.includes("conditional formatting") || (lq.includes("excel") && lq.includes("format"))) {
                     if (lowerAns.includes("conditional formatting") || lowerAns.includes("format") || lowerAns.includes("color")) {
                       isCorrect = true;
-                      explanation = "Correct Answer: MS Excel Conditional Formatting changes cell appearance/color dynamically based on conditions.";
+                      explanation = "Correct Answer: MS Excel Conditional Formatting dynamically formats cells based on rules/thresholds.";
                     }
                   } else if (lq.includes("excel") && (lq.includes("calculate") || lq.includes("average") || lq.includes("sum"))) {
                     if (lowerAns.includes("formula") || lowerAns.includes("average") || lowerAns.includes("sum") || lowerAns.includes("fx")) {
                       isCorrect = true;
-                      explanation = "Correct Answer: Excel formulas/functions correctly utilized for calculation.";
+                      explanation = "Correct Answer: Excel formulas/functions correctly identified for calculation.";
+                    }
+                  } else if (lq.includes("primary source") || lq.includes("literary") || lq.includes("research methodology")) {
+                    if (lowerAns.includes("manuscript") || lowerAns.includes("diary") || lowerAns.includes("original") || lowerAns.startsWith("a.") || lowerAns.startsWith("a)")) {
+                      isCorrect = true;
+                      explanation = "Correct Answer: Primary sources represent first-hand original historical documents and manuscripts.";
                     }
                   } else if (lq.includes("attendance") || lq.includes("grade") || lq.includes("lms") || lq.includes("student")) {
-                    if (lowerAns.includes("lms") || lowerAns.includes("portal") || lowerAns.includes("google classroom") || lowerAns.includes("erp") || lowerAns.includes("software")) {
+                    if (lowerAns.includes("lms") || lowerAns.includes("portal") || lowerAns.includes("google classroom") || lowerAns.includes("erp")) {
                       isCorrect = true;
                       explanation = "Correct Answer: Appropriate educational tool / software workflow identified.";
                     }
                   }
 
                   if (!isCorrect) {
-                    const qTerms = lq.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(t => t.length > 3);
+                    const qTerms = lq.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(t => t.length > 3 && !["what", "which", "explain", "describe", "outline", "detail", "following", "provide"].includes(t));
                     const overlap = qTerms.filter(t => lowerAns.includes(t)).length;
-                    if (overlap >= 2 || words.length >= 10) {
+                    if (overlap >= 2 && words.length >= 8) {
                       isPartial = true;
-                      explanation = "Partially Satisfactory: Relevant attempt with foundational concept, but lacks detailed execution.";
+                      explanation = "Partially Satisfactory: Relevant attempt addressing general domain concepts, but lacks technical depth and precision.";
                     } else {
-                      explanation = "Incorrect / Irrelevant Response: Candidate answered inaccurately. Marks deducted according to SVU grading rubric.";
+                      explanation = "Incorrect / Inaccurate Response: Answer does not satisfy the question requirements. Zero (0) marks awarded.";
                     }
                   }
 
                   const status = isCorrect ? "correct" : isPartial ? "partially_correct" : "incorrect";
-                  const score = isCorrect ? 10 : isPartial ? 5 : 1;
+                  const score = isCorrect ? 10 : isPartial ? 5 : 0;
                   const grade = isCorrect ? "A+" : isPartial ? "B" : "F";
 
                   return {
@@ -2286,12 +2296,18 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                 };
 
                 const evaluatedItems = qArr.map((q, idx) => {
-                  const qText = typeof q === "string" ? q : q.question || q.q || "";
-                  const aText = aArr[idx] ? (typeof aArr[idx] === "string" ? aArr[idx] : aArr[idx].answer || "") : "";
+                  const stored = storedQuestionWise && storedQuestionWise[idx] ? storedQuestionWise[idx] : null;
+                  const qText = typeof q === "string" && q.trim().length > 0 
+                    ? q 
+                    : (q?.question || q?.q || q?.title || stored?.question || `Question ${idx + 1}`);
+                  const aText = aArr[idx] 
+                    ? (typeof aArr[idx] === "string" ? aArr[idx] : aArr[idx]?.answer || aArr[idx]?.text || "") 
+                    : (stored?.answer || "");
+                  const result = stored || evaluateItem(qText, aText, idx);
                   return {
                     qText,
                     aText,
-                    result: evaluateItem(qText, aText, idx)
+                    result
                   };
                 });
 
@@ -2348,11 +2364,11 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
 
                     {/* Question Cards List */}
                     <div style={{ 
-                      background: "rgba(0,0,0,0.25)", 
+                      background: "rgba(0,0,0,0.35)", 
                       border: "1px solid var(--border-white)", 
                       borderRadius: "16px", 
                       padding: "16px", 
-                      maxHeight: "380px", 
+                      maxHeight: "440px", 
                       overflowY: "auto", 
                       display: "flex", 
                       flexDirection: "column", 
@@ -2366,20 +2382,20 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                         const isUnanswered = res.status === "unanswered";
 
                         const borderColor = isCorrect 
-                          ? "rgba(16, 185, 129, 0.35)" 
+                          ? "rgba(16, 185, 129, 0.4)" 
                           : isPartial 
-                          ? "rgba(245, 158, 11, 0.35)" 
+                          ? "rgba(245, 158, 11, 0.4)" 
                           : isIncorrect 
-                          ? "rgba(239, 68, 68, 0.35)" 
-                          : "rgba(255, 255, 255, 0.08)";
+                          ? "rgba(239, 68, 68, 0.4)" 
+                          : "rgba(255, 255, 255, 0.1)";
 
                         const bgHeader = isCorrect
-                          ? "rgba(16, 185, 129, 0.08)"
+                          ? "rgba(16, 185, 129, 0.12)"
                           : isPartial
-                          ? "rgba(245, 158, 11, 0.08)"
+                          ? "rgba(245, 158, 11, 0.12)"
                           : isIncorrect
-                          ? "rgba(239, 68, 68, 0.08)"
-                          : "rgba(255, 255, 255, 0.02)";
+                          ? "rgba(239, 68, 68, 0.12)"
+                          : "rgba(255, 255, 255, 0.04)";
 
                         return (
                           <div 
@@ -2387,8 +2403,12 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
                             style={{ 
                               border: `1px solid ${borderColor}`, 
                               borderRadius: "12px", 
-                              background: "rgba(10, 15, 29, 0.5)",
-                              overflow: "hidden"
+                              background: "rgba(10, 15, 29, 0.8)",
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              minHeight: "fit-content",
+                              display: "flex",
+                              flexDirection: "column"
                             }}
                           >
                             {/* Question Header Bar */}

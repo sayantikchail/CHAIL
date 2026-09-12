@@ -988,37 +988,112 @@ app.post("/api/resume/analyze", async (req, res) => {
     // Build smart, dynamic fallback analysis based on filename and existing profile keywords
     const streamFromProfile = (user?.stream || "").toLowerCase();
     const qualFromProfile = (user?.qualification || "").toLowerCase();
-    const isMedical = lowerName.includes("doctor") || lowerName.includes("medical") || lowerName.includes("nurse") || lowerName.includes("pharma") || lowerName.includes("mbbs") || lowerName.includes("health") || lowerName.includes("clinical") || lowerName.includes("hospital") || lowerName.includes("dentist") || lowerName.includes("bds") || lowerName.includes("md") ||
-                      streamFromProfile.includes("doctor") || streamFromProfile.includes("medical") || streamFromProfile.includes("mbbs") || streamFromProfile.includes("nursing") || streamFromProfile.includes("pharma") || streamFromProfile.includes("dentist") || streamFromProfile.includes("health") || qualFromProfile.includes("mbbs") || qualFromProfile.includes("md") || qualFromProfile.includes("bds");
+    const combinedProfileText = `${lowerName} ${streamFromProfile} ${qualFromProfile}`;
+
+    const isArts = combinedProfileText.includes("arts") || combinedProfileText.includes("general") || combinedProfileText.includes("b.a") || combinedProfileText.includes("m.a") || combinedProfileText.includes("humanities") || combinedProfileText.includes("history") || combinedProfileText.includes("bengali") || combinedProfileText.includes("english") || combinedProfileText.includes("philosophy") || combinedProfileText.includes("political") || combinedProfileText.includes("sociology") || combinedProfileText.includes("literature") || combinedProfileText.includes("sanskrit") || combinedProfileText.includes("geography");
     
-    const isLegal = lowerName.includes("lawyer") || lowerName.includes("law") || lowerName.includes("legal") || lowerName.includes("llb") || lowerName.includes("llm") || lowerName.includes("advocate") || lowerName.includes("court") || lowerName.includes("judicial") ||
-                    streamFromProfile.includes("law") || streamFromProfile.includes("legal") || streamFromProfile.includes("llb") || streamFromProfile.includes("court") || streamFromProfile.includes("advocate") || qualFromProfile.includes("llb") || qualFromProfile.includes("llm");
+    const isCommerce = !isArts && (combinedProfileText.includes("commerce") || combinedProfileText.includes("b.com") || combinedProfileText.includes("m.com") || combinedProfileText.includes("account") || combinedProfileText.includes("finance") || combinedProfileText.includes("tax") || combinedProfileText.includes("banking") || combinedProfileText.includes("bba") || combinedProfileText.includes("mba"));
+
+    const isEducation = !isArts && !isCommerce && (combinedProfileText.includes("education") || combinedProfileText.includes("teach") || combinedProfileText.includes("b.ed") || combinedProfileText.includes("d.el.ed") || combinedProfileText.includes("pedagog"));
+
+    const isMedical = combinedProfileText.includes("doctor") || combinedProfileText.includes("medical") || combinedProfileText.includes("nurse") || combinedProfileText.includes("pharma") || combinedProfileText.includes("mbbs") || combinedProfileText.includes("health") || combinedProfileText.includes("clinical") || combinedProfileText.includes("hospital") || combinedProfileText.includes("dentist") || combinedProfileText.includes("bds") || combinedProfileText.includes("md");
+    
+    const isLegal = combinedProfileText.includes("lawyer") || combinedProfileText.includes("law") || combinedProfileText.includes("legal") || combinedProfileText.includes("llb") || combinedProfileText.includes("llm") || combinedProfileText.includes("advocate") || combinedProfileText.includes("court") || combinedProfileText.includes("judicial");
 
     let fallbackSkills = [
-      { name: "HTML & CSS", level: 92 },
-      { name: "JavaScript", level: 85 },
+      { name: "Programming Fundamentals", level: 90 },
+      { name: "System Architecture", level: 85 },
       { name: "Communication", level: 88 },
-      { name: "Problem Solving", level: 78 }
+      { name: "Problem Solving", level: 82 }
     ];
 
     let fallbackAnalysis = {
       skills: fallbackSkills,
-      detectedStream: "Computer Science & Engineering",
-      detectedQualification: "B.Tech",
+      detectedStream: user?.stream || "Computer Science & Engineering",
+      detectedQualification: user?.qualification || "B.Tech",
       detectedInstitution: "Swami Vivekananda University",
-      keySubjects: ["Data Structures", "Database Management", "Computer Networks"],
+      keySubjects: ["Data Structures & Algorithms", "Database Management", "Computer Networks"],
       keyProjects: [
         {
-          title: "Academic Portal",
-          description: "A centralized student and instructor academic platform with portal dashboards.",
-          techStack: "React, Node.js, SQLite"
+          title: "Portfolio Web Application",
+          description: "Interactive modern responsive web interface with clean UX and optimized state.",
+          techStack: "React, TypeScript, Tailwind CSS"
         }
       ],
       knowledgeDepth: "Solid grasp of software systems, modern web frameworks, and clean UI/UX designs.",
-      careerDomain: "Full Stack Development"
+      careerDomain: "Full Stack Software Engineering"
     };
 
-    if (isMedical) {
+    if (isArts) {
+      fallbackSkills = [
+        { name: "Critical Reading & Analysis", level: 92 },
+        { name: "Academic Research & Writing", level: 88 },
+        { name: "Social & Cultural Context", level: 85 },
+        { name: "Communication & Presentation", level: 90 }
+      ];
+      fallbackAnalysis = {
+        skills: fallbackSkills,
+        detectedStream: user?.stream || "Arts / General Studies",
+        detectedQualification: user?.qualification || "B.A. (Hons.)",
+        detectedInstitution: "Swami Vivekananda University",
+        keySubjects: ["Literature & Cultural Studies", "Social Sciences", "Research Methodology", "Analytical Communication"],
+        keyProjects: [
+          {
+            title: "Academic Seminar Paper & Case Study",
+            description: "Analytical research paper evaluating thematic social context, qualitative analysis, and comprehensive literature review.",
+            techStack: "Qualitative Research, Academic Citation, Presentation"
+          }
+        ],
+        knowledgeDepth: "Comprehensive grasp of analytical reasoning, qualitative critical analysis, and literature research.",
+        careerDomain: "Arts, Humanities & General Studies"
+      };
+    } else if (isCommerce) {
+      fallbackSkills = [
+        { name: "Financial Accounting", level: 92 },
+        { name: "Corporate Taxation & GST", level: 86 },
+        { name: "Business Economics", level: 84 },
+        { name: "Auditing & Cost Management", level: 88 }
+      ];
+      fallbackAnalysis = {
+        skills: fallbackSkills,
+        detectedStream: user?.stream || "Commerce & Accountancy",
+        detectedQualification: user?.qualification || "B.Com",
+        detectedInstitution: "Swami Vivekananda University",
+        keySubjects: ["Financial Accounting", "Corporate Taxation", "Auditing", "Business Economics"],
+        keyProjects: [
+          {
+            title: "Financial Statement Analysis & Audit Review",
+            description: "Detailed financial ratio evaluation, ledger balancing, and corporate tax compliance study.",
+            techStack: "Tally ERP, MS Excel, Accounting Standards"
+          }
+        ],
+        knowledgeDepth: "Solid grasp of accounting principles, ledger balancing, taxation laws, and financial reporting.",
+        careerDomain: "Accounting & Financial Management"
+      };
+    } else if (isEducation) {
+      fallbackSkills = [
+        { name: "Pedagogy & Lesson Planning", level: 92 },
+        { name: "Classroom Assessment", level: 88 },
+        { name: "Educational Psychology", level: 85 },
+        { name: "Instructional Technology", level: 86 }
+      ];
+      fallbackAnalysis = {
+        skills: fallbackSkills,
+        detectedStream: user?.stream || "Education & Pedagogy",
+        detectedQualification: user?.qualification || "B.Ed / Education",
+        detectedInstitution: "Swami Vivekananda University",
+        keySubjects: ["Pedagogical Theory", "Child Psychology", "Curriculum Development", "Assessment & Evaluation"],
+        keyProjects: [
+          {
+            title: "Classroom Pedagogy & Curriculum Design Project",
+            description: "Formulation of inclusive learning strategies, lesson frameworks, and formative assessment rubrics.",
+            techStack: "Pedagogical Frameworks, Bloom's Taxonomy, Educational Assessment Tools"
+          }
+        ],
+        knowledgeDepth: "Comprehensive grasp of modern pedagogical frameworks, student engagement strategies, and learning assessment.",
+        careerDomain: "Education & Academic Pedagogy"
+      };
+    } else if (isMedical) {
       fallbackSkills = [
         { name: "Clinical Diagnosis", level: 90 },
         { name: "Patient Care", level: 94 },
@@ -1092,9 +1167,13 @@ app.post("/api/resume/analyze", async (req, res) => {
           }
         };
 
-        const textPrompt = `You are ChAIL AI Resume Analyzer. Given the uploaded document, analyze it as a professional or academic profile and extract technical skills, academic branch (stream), qualification degree, key subjects, and projects. 
+        const textPrompt = `You are ChAIL AI Resume Analyzer. Given the uploaded document, analyze it as a professional or academic profile and extract skills, academic branch (stream), qualification degree, key subjects, and projects strictly based on the content of the document.
              Do not perform any verification of whether it is a "real" resume or reject it. Always treat it as valid.
-             Assign realistic proficiency levels (65% to 98%) based on their background.
+             CRITICAL SUBJECT ACCURACY MANDATE:
+             - Detect the candidate's true academic stream (e.g. Arts, Literature, History, Bengali, English, Commerce, Education, Engineering, Video Editing, Medical, Law) strictly from their actual resume.
+             - If the candidate is an Arts, Humanities, or General candidate (e.g. B.A., M.A.), extract their authentic subjects (e.g. Literature, History, Philosophy, Critical Analysis, Qualitative Research). DO NOT invent or attach software coding skills (like React, Node.js, Python, SQL) to an Arts or General student unless explicitly written on their resume!
+             - ABSOLUTE PROHIBITION: NEVER attribute "Academic Portal" or "Academic Portal development" as the student's project.
+             - Assign realistic proficiency levels (65% to 98%) based on their declared background and domain.
              
              Format the output strictly as a single JSON object (with no enclosing markdown code blocks, no comments, no extra text):
              {
@@ -1330,23 +1409,55 @@ app.post("/api/interview/questions", async (req, res) => {
     const skillsString = skillsList.map((s: any) => s.name || s).join(", ") || "General Technical Concepts, Software Engineering, Coding";
 
     const subjectsString = (analysis && analysis.keySubjects) ? analysis.keySubjects.join(", ") : "Database Management, Data Structures & Algorithms, Network Security";
-    const projectDetails = (analysis && analysis.keyProjects && analysis.keyProjects.length > 0) 
-      ? analysis.keyProjects.map((p: any) => `"${p.title}" (${p.description}, stack: ${p.techStack})`).join("; ")
-      : "academic portal development";
-
     const lowerStream = stream.toLowerCase();
     const lowerQual = qualification.toLowerCase();
     const skillsText = (skillsString + " " + (analysis?.careerDomain || "") + " " + (analysis?.knowledgeDepth || "") + " " + stream).toLowerCase();
 
+    const isArtsOrGeneral = lowerStream.includes("arts") || lowerStream.includes("general") || lowerStream.includes("b.a") || lowerStream.includes("m.a") || lowerStream.includes("humanities") || lowerStream.includes("history") || lowerStream.includes("bengali") || lowerStream.includes("english") || lowerStream.includes("philosophy") || lowerStream.includes("political") || lowerStream.includes("sociology") || lowerStream.includes("literature") || lowerStream.includes("sanskrit") || lowerStream.includes("geography") || lowerQual.includes("b.a") || lowerQual.includes("m.a") || skillsText.includes("humanities") || skillsText.includes("literature") || skillsText.includes("social science");
+
+    const isCommerce = !isArtsOrGeneral && (lowerStream.includes("commerce") || lowerStream.includes("b.com") || lowerStream.includes("m.com") || lowerStream.includes("account") || lowerStream.includes("finance") || lowerStream.includes("tax") || lowerStream.includes("banking") || lowerStream.includes("bba") || lowerStream.includes("mba") || lowerQual.includes("b.com") || lowerQual.includes("m.com") || lowerQual.includes("bba") || lowerQual.includes("mba"));
+
+    const isTeaching = !isArtsOrGeneral && !isCommerce && (lowerStream.includes("education") || lowerStream.includes("teach") || lowerQual.includes("b.ed") || lowerQual.includes("d.el.ed") || skillsText.includes("teaching") || skillsText.includes("pedagogy"));
+
     const isMedical = lowerStream.includes("doctor") || lowerStream.includes("medical") || lowerStream.includes("mbbs") || lowerStream.includes("nursing") || lowerStream.includes("pharma") || lowerStream.includes("dentist") || lowerStream.includes("health") || lowerQual.includes("mbbs") || lowerQual.includes("md") || lowerQual.includes("bds");
+
     const isLegal = lowerStream.includes("law") || lowerStream.includes("legal") || lowerStream.includes("llb") || lowerStream.includes("court") || lowerStream.includes("advocate") || lowerQual.includes("llb") || lowerQual.includes("llm");
-    const isTeaching = lowerStream.includes("education") || lowerStream.includes("teach") || lowerQual.includes("b.ed") || lowerQual.includes("education") || skillsText.includes("teaching") || skillsText.includes("pedagogy");
-    const isVideoOrMedia = skillsText.includes("video") || skillsText.includes("premiere") || skillsText.includes("resolve") || skillsText.includes("after effects") || skillsText.includes("photoshop") || skillsText.includes("motion") || skillsText.includes("graphic") || skillsText.includes("multimedia") || skillsText.includes("content") || skillsText.includes("color grading") || skillsText.includes("editing");
-    const isFrontendOrWeb = !isVideoOrMedia && (skillsText.includes("react") || skillsText.includes("frontend") || skillsText.includes("web development") || skillsText.includes("javascript") || skillsText.includes("html") || skillsText.includes("css") || skillsText.includes("ui/ux") || skillsText.includes("tailwind"));
-    const isEngineering = !isVideoOrMedia && !isTeaching && !isFrontendOrWeb && (lowerStream.includes("computer") || lowerStream.includes("engineer") || lowerStream.includes("tech") || lowerStream.includes("bca") || lowerStream.includes("mca") || lowerStream.includes("software") || lowerQual.includes("b.tech") || lowerQual.includes("m.tech") || lowerQual.includes("bca") || lowerQual.includes("mca"));
+
+    const isVideoOrMedia = !isArtsOrGeneral && (skillsText.includes("video") || skillsText.includes("premiere") || skillsText.includes("resolve") || skillsText.includes("after effects") || skillsText.includes("motion graphics") || skillsText.includes("color grading"));
+
+    const isFrontendOrWeb = !isArtsOrGeneral && !isCommerce && !isTeaching && !isVideoOrMedia && (skillsText.includes("react") || skillsText.includes("frontend") || skillsText.includes("web development") || skillsText.includes("javascript") || skillsText.includes("html & css"));
+
+    const isEngineering = !isArtsOrGeneral && !isCommerce && !isTeaching && !isVideoOrMedia && !isFrontendOrWeb && (lowerStream.includes("computer") || lowerStream.includes("engineer") || lowerStream.includes("tech") || lowerStream.includes("bca") || lowerStream.includes("mca") || lowerStream.includes("software") || lowerQual.includes("b.tech") || lowerQual.includes("m.tech") || lowerQual.includes("bca") || lowerQual.includes("mca"));
+
+    const projectDetails = (analysis && analysis.keyProjects && analysis.keyProjects.length > 0) 
+      ? analysis.keyProjects
+          .filter((p: any) => !p.title?.toLowerCase().includes("academic portal"))
+          .map((p: any) => `"${p.title}" (${p.description}, stack: ${p.techStack})`).join("; ") || "Academic research and coursework assignments"
+      : (isArtsOrGeneral ? "Academic research seminar paper and case inquiry" :
+         isCommerce ? "Financial statement review and case study analysis" :
+         isTeaching ? "Curriculum design and pedagogical workshop lesson plan" :
+         "Academic coursework assignments and practical projects");
 
     let fallbackQuestions = [];
-    if (isMedical) {
+    if (isArtsOrGeneral) {
+      fallbackQuestions = [
+        { q: "In historical and academic research methodology, which of the following is strictly categorized as a 'Primary Source' of evidence?", s: "Select the direct, contemporary firsthand artifact from the period under study.", d: "Easy", type: "mcq", options: ["A. An original handwritten diary, treaty manuscript, or official government gazette from the era", "B. A modern textbook summary written decades later", "C. A contemporary journal article reviewing secondary literature", "D. An encyclopedia entry summarizing past events"] },
+        { q: "Explain the fundamental difference between qualitative research methodology and quantitative research methodology in social sciences and humanities.", s: "Contrast exploratory, thematic, text-based inquiry against numerical, statistical, and empirical hypothesis testing.", d: "Easy", type: "short" },
+        { q: "Describe your approach to conducting a comprehensive literature review for an academic paper or seminar project from your curriculum. How do you synthesize diverse scholarly viewpoints?", s: "Mention thematic categorization, identifying historiographical gaps, evaluating author perspectives, and synthesizing arguments.", d: "Easy", type: "long" },
+        { q: "Which critical literary or analytical framework focuses primarily on examining how social class structures, economic relations, and material conditions shape artistic and cultural texts?", s: "Identify the critical theory rooted in socio-economic material analysis.", d: "Medium", type: "mcq", options: ["A. Marxist and Socio-Economic Critical Theory", "B. Formalism and New Criticism", "C. Structuralist Linguistic Semiotics", "D. Reader-Response Theory"] },
+        { q: "Explain the concept of 'Historiography' and why an academic researcher must evaluate an author's contextual bias and philosophical perspective.", s: "Discuss how historical interpretations evolve over time and the importance of contextualizing the historian's vantage point.", d: "Medium", type: "short" },
+        { q: "Detail how you analyzed a major text, historical movement, or social issue during your academic coursework. What methodology did you use and what conclusions did you reach?", s: "Outline the specific topic, your analytical framework, primary evidence used, and your structured critical conclusion.", d: "Medium", type: "long" },
+        { q: "In formal academic writing and publishing, what is the primary purpose of standardized citation styles (such as MLA, APA, or Chicago)?", s: "Select the option explaining intellectual attribution, academic integrity, and verifiable scholarship.", d: "Medium", type: "mcq", options: ["A. Establishing intellectual attribution, ensuring academic integrity, and enabling readers to trace verifiable sources", "B. Increasing the overall word count of the thesis", "C. Replacing the need for critical analysis", "D. Formatting text into poetic verses"] },
+        { q: "Briefly explain the role of rhetoric and persuasive argumentation in classical and modern discourse, highlighting ethos, pathos, and logos.", s: "Define credibility (ethos), emotional appeal (pathos), and logical reasoning (logos) with examples.", d: "Hard", type: "short" },
+        { q: "Discuss how cultural, social, and political movements influence literature and language over time. Illustrate with a prominent historical or regional movement from your syllabus.", s: "Discuss specific movements (e.g. Bengal Renaissance, Romanticism, Post-colonialism), key authors, and thematic transformations.", d: "Hard", type: "long" },
+        { q: "Describe a situation during your studies where you had to reconcile conflicting historical accounts or contrasting literary interpretations of the same phenomenon. How did you resolve the ambiguity?", s: "Discuss critical cross-referencing, evaluating source provenance, and formulating a balanced, evidence-based argument.", d: "Hard", type: "long" },
+        { q: "What does the term 'Hermeneutics' primarily refer to in philosophical, legal, and literary studies?", s: "Identify the branch of knowledge dealing with methodological interpretation and text analysis.", d: "Easy", type: "mcq", options: ["A. The theory and methodology of text interpretation and meaning extraction", "B. The statistical study of population demographics", "C. The physical restoration of ancient manuscript bindings", "D. The phonetic analysis of speech sounds"] },
+        { q: "Explain how you evaluate the reliability and credibility of digital information sources and online archives in contemporary academic research.", s: "Mention peer review verification, institutional archiving, author credentials, cross-referencing, and assessing ideological bias.", d: "Medium", type: "short" },
+        { q: "Detail the structural components of an effective research proposal in the humanities or social sciences.", s: "Highlight abstract, research question, rationale, methodology, literature review, and anticipated scholarly contribution.", d: "Medium", type: "long" },
+        { q: "Which ethical principle is violated when an author paraphrases another scholar's unique analytical insight without proper citation?", s: "Identify the violation of academic honesty and intellectual property.", d: "Hard", type: "mcq", options: ["A. Academic Plagiarism and Attribution Failure", "B. Breach of Judicial Precedent", "C. Statistical Skewness", "D. Editorial Redundancy"] },
+        { q: "How do you communicate complex academic research or socio-cultural ideas effectively to a general, non-specialist audience?", s: "Discuss clarity of phrasing, illustrative analogies, eliminating exclusionary jargon, and structured public presentation.", d: "Hard", type: "long" }
+      ];
+    } else if (isMedical) {
       fallbackQuestions = [
         { q: "In an adult patient experiencing refractory ventricular fibrillation cardiac arrest, which medication and dosage is indicated following the third shock?", s: "Select the correct option representing gold-standard ACLS guidelines.", d: "Easy", type: "mcq", options: ["A. Amiodarone 300mg IV/IO bolus", "B. Epinephrine 1mg IV/IO", "C. Lidocaine 100mg IV/IO", "D. Vasopressin 40 units IV/IO"] },
         { q: "Outline the clinical criteria, diagnostic markers, and blood gas thresholds used to distinguish between Type 1 and Type 2 Acute Respiratory Distress Syndrome (ARDS) in an intensive care setting.", s: "Mention PaO2/FiO2 ratio, positive end-expiratory pressure (PEEP), and systemic inflammatory indicators.", d: "Easy", type: "short" },
@@ -1465,9 +1576,15 @@ app.post("/api/interview/questions", async (req, res) => {
       // Inject project-specific questions from their real CV
       pList.forEach((proj: any, idx: number) => {
         if (proj.title && customTailoredQuestions.length < 4) {
+          if (proj.title.toLowerCase().includes("academic portal")) return;
+          const questionText = isArtsOrGeneral
+            ? `Based on your academic curriculum and resume, detail your specific inquiry or methodology in "${proj.title}". What primary themes, sources, or analytical frameworks did you examine, and what conclusions did you reach?`
+            : `Based on your resume, detail your direct contribution to the project "${proj.title}" (${proj.techStack || "specialized tools"}). What were the critical workflow bottlenecks or execution constraints, and how did you resolve them?`;
           customTailoredQuestions.push({
-            q: `Based on your resume, detail your direct technical contribution to the project "${proj.title}" (${proj.techStack || "specialized tools"}). What were the critical workflow bottlenecks or execution constraints, and how did you resolve them?`,
-            s: "Use the STAR approach. Focus on tools used, your personal problem-solving, and measurable results.",
+            q: questionText,
+            s: isArtsOrGeneral
+              ? "Focus on research questions, qualitative sources, and structured analytical conclusions."
+              : "Use the STAR approach. Focus on tools used, your personal problem-solving, and measurable results.",
             d: idx === 0 ? "Hard" : "Medium",
             type: "long"
           });
@@ -1480,14 +1597,14 @@ app.post("/api/interview/questions", async (req, res) => {
         if (sName && customTailoredQuestions.length < 8) {
           if (idx % 2 === 0) {
             customTailoredQuestions.push({
-              q: `Regarding your proficiency in "${sName}": explain an advanced troubleshooting workflow or optimization technique you apply when producing high-standard work under strict deadlines.`,
+              q: `Regarding your proficiency in "${sName}": explain an advanced methodology or analytical workflow you apply when producing high-standard work under strict deadlines.`,
               s: `Cite a concrete professional workflow or technique specific to ${sName}.`,
               d: idx < 2 ? "Easy" : "Medium",
               type: "short"
             });
           } else {
             customTailoredQuestions.push({
-              q: `How do you evaluate industry standards, quality control, and client/stakeholder requirements when executing tasks using "${sName}"? Provide a specific practical scenario.`,
+              q: `How do you evaluate industry standards, quality control, and stakeholder requirements when executing tasks using "${sName}"? Provide a specific practical scenario.`,
               s: "Describe specific quality benchmarks and problem-solving steps.",
               d: "Medium",
               type: "long"
@@ -1537,7 +1654,11 @@ app.post("/api/interview/questions", async (req, res) => {
         CRITICAL CV & SUBJECT ALIGNMENT (ABSOLUTE MANDATE - NO OUT-OF-CV / NO OUT-OF-SUBJECT QUESTIONS):
         - All 15 questions MUST be 100% strictly and exclusively based on the candidate's actual CV details: their detected resume skills (${skillsString}), their specific key projects (${projectDetails}), their declared stream (${stream}), and their target domain (${analysis?.careerDomain || stream}).
         - Under NO circumstances should you generate questions outside their declared subject or CV domain.
+        - ABSOLUTE PROHIBITION: NEVER ask questions about "Academic Portal" or "Academic Portal development"! The Academic Portal is an internal institution administration tool, NOT the student's project!
         - STRICT RULE: Do NOT ask generic server architecture, distributed databases, cloud systems, microservices, or IT backend infrastructure questions unless the candidate's CV explicitly lists distributed backend/cloud engineering skills.
+        - For a candidate whose stream or CV is in Arts / General / Humanities / Literature / History / Bengali / English / Philosophy / Political Science / Sociology (e.g. B.A., M.A.):
+          EVERY SINGLE QUESTION must strictly test their actual subject: literature analysis, historical frameworks, philosophical/social inquiry, qualitative research methodology, critical reading, argumentation, and academic writing.
+          ABSOLUTE MANDATE: Under NO circumstances should you generate questions about coding, software development, React, JavaScript, HTML/CSS, databases, SQL, or IT infrastructure for an Arts or General student!
         - For a candidate whose CV specializes in Video Editing, Digital Media, Motion Graphics, Content Creation, Graphic Design (e.g. Adobe Premiere Pro, DaVinci Resolve, After Effects, Photoshop, Social Media Strategy):
           EVERY SINGLE QUESTION must rigorously test their actual skills in video editing, color grading, motion design, video codecs, audio mastering, visual storytelling, and their specific portfolio campaigns! NEVER ask them cloud servers, database internals, or IT infrastructure!
         - For a candidate whose CV specializes in Web Development (React, JavaScript, HTML, CSS):
