@@ -33,6 +33,15 @@ export interface ScoreItem {
   remark: string;
 }
 
+export interface QuestionWiseScoreItem {
+  qIndex: number;
+  status: "correct" | "partially_correct" | "incorrect" | "unanswered";
+  score: number;
+  maxScore: number;
+  grade: string;
+  evaluation: string;
+}
+
 export interface Evaluation {
   confidence: ScoreItem;
   clarity: ScoreItem;
@@ -47,6 +56,7 @@ export interface Evaluation {
   developmentAreas: string[];
   summary: string;
   recommendations: string[];
+  questionWise?: QuestionWiseScoreItem[];
 }
 
 export interface ReportCard {
@@ -70,6 +80,7 @@ export interface ReportCard {
     relevance: ScoreItem;
     technicalDepth: ScoreItem;
     grammar: ScoreItem;
+    questionWise?: QuestionWiseScoreItem[];
   };
   date: string;
   questions?: string[];

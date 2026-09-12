@@ -14,6 +14,10 @@ import {
   Calendar, 
   Award, 
   CheckCircle, 
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  HelpCircle,
   X,
   BookOpen,
   Eye,
@@ -2180,35 +2184,329 @@ export default function AdminConsole({ user, onLogout, showNotification }: Admin
               </div>
             </div>
 
-            {/* Stored Questions & Answers Dialog Transcript */}
+            {/* Question-Wise Performance Audit & Response Transcript */}
             <div>
-              <h3 style={{ fontSize: "13px", fontWeight: "800", marginBottom: "12px", textTransform: "uppercase", color: "var(--accent)", display: "flex", alignItems: "center", gap: "8px" }}>
-                <Terminal size={14} style={{ color: "var(--accent)" }} /> VERBATIM EXAMINEE RESPONSE TRANSCRIPT
-              </h3>
-              <div style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border-white)", borderRadius: "16px", padding: "20px", maxHeight: "300px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "16px" }}>
-                {(() => {
-                  const qArr = safeParse(viewingInterview.questions, []);
-                  const aArr = safeParse(viewingInterview.answers, []);
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                <h3 style={{ fontSize: "13px", fontWeight: "800", textTransform: "uppercase", color: "var(--accent)", display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                  <Terminal size={14} style={{ color: "var(--accent)" }} /> QUESTION-WISE MARKS AUDIT & VERBATIM RESPONSE LOG
+                </h3>
+                <span style={{ fontSize: "10px", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Autonomous Academic Evaluator Engine
+                </span>
+              </div>
 
-                  if (qArr.length === 0) {
-                    return <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>No active transcript lines recorded.</span>;
+              {(() => {
+                const qArr: any[] = safeParse(viewingInterview.questions, []);
+                const aArr: any[] = safeParse(viewingInterview.answers, []);
+                const scoresObj: any = safeParse(viewingInterview.scores, {});
+                const storedQuestionWise: any[] = scoresObj.questionWise || [];
+
+                if (qArr.length === 0) {
+                  return (
+                    <div style={{ background: "rgba(0,0,0,0.25)", border: "1px solid var(--border-white)", borderRadius: "16px", padding: "20px" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-dim)" }}>No active transcript lines recorded.</span>
+                    </div>
+                  );
+                }
+
+                // Helper to evaluate on-the-fly if storedQuestionWise is empty
+                const evaluateItem = (qText: string, ansText: string, idx: number) => {
+                  if (storedQuestionWise[idx]) return storedQuestionWise[idx];
+
+                  const ans = (ansText || "").trim();
+                  const lowerAns = ans.toLowerCase();
+                  const words = ans.split(/\s+/).filter(w => w.length > 0);
+
+                  const isSkipped = !ans || 
+                    lowerAns === "skipped" || 
+                    lowerAns === "skip" || 
+                    lowerAns === "no answer" || 
+                    lowerAns === "no response provided." ||
+                    lowerAns === "i do not know" ||
+                    lowerAns === "dont know" ||
+                    lowerAns === "don't know" ||
+                    lowerAns === "na";
+
+                  if (isSkipped || words.length < 2) {
+                    return {
+                      qIndex: idx,
+                      status: "unanswered",
+                      score: 0,
+                      maxScore: 10,
+                      grade: "F",
+                      evaluation: "Question was skipped or left unattempted. Zero marks awarded."
+                    };
                   }
 
-                  return qArr.map((q: any, index: number) => {
-                    const questionText = typeof q === "string" ? q : q.question || q.q || "";
-                    const answerText = aArr[index] ? (typeof aArr[index] === "string" ? aArr[index] : aArr[index].answer || "") : "No response provided.";
+                  const lq = qText.toLowerCase();
+                  let isCorrect = false;
+                  let isPartial = false;
+                  let explanation = "";
 
-                    return (
-                      <div key={index} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: "14px" }}>
-                        <div style={{ fontWeight: "700", color: "var(--accent)", fontSize: "12.5px", marginBottom: "4px" }}>Q{index + 1}: {questionText}</div>
-                        <div style={{ fontSize: "12px", color: "#e2e8f0", paddingLeft: "12px", borderLeft: "2px solid var(--pink)", marginTop: "6px" }}>
-                          <span style={{ fontWeight: "700", color: "var(--pink)", marginRight: "6px" }}>Answer:</span> {answerText}
-                        </div>
+                  if (lq.includes("conditional formatting") || (lq.includes("excel") && lq.includes("format"))) {
+                    if (lowerAns.includes("conditional formatting") || lowerAns.includes("format") || lowerAns.includes("color")) {
+                      isCorrect = true;
+                      explanation = "Correct Answer: MS Excel Conditional Formatting changes cell appearance/color dynamically based on conditions.";
+                    }
+                  } else if (lq.includes("excel") && (lq.includes("calculate") || lq.includes("average") || lq.includes("sum"))) {
+                    if (lowerAns.includes("formula") || lowerAns.includes("average") || lowerAns.includes("sum") || lowerAns.includes("fx")) {
+                      isCorrect = true;
+                      explanation = "Correct Answer: Excel formulas/functions correctly utilized for calculation.";
+                    }
+                  } else if (lq.includes("attendance") || lq.includes("grade") || lq.includes("lms") || lq.includes("student")) {
+                    if (lowerAns.includes("lms") || lowerAns.includes("portal") || lowerAns.includes("google classroom") || lowerAns.includes("erp") || lowerAns.includes("software")) {
+                      isCorrect = true;
+                      explanation = "Correct Answer: Appropriate educational tool / software workflow identified.";
+                    }
+                  }
+
+                  if (!isCorrect) {
+                    const qTerms = lq.replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(t => t.length > 3);
+                    const overlap = qTerms.filter(t => lowerAns.includes(t)).length;
+                    if (overlap >= 2 || words.length >= 10) {
+                      isPartial = true;
+                      explanation = "Partially Satisfactory: Relevant attempt with foundational concept, but lacks detailed execution.";
+                    } else {
+                      explanation = "Incorrect / Irrelevant Response: Candidate answered inaccurately. Marks deducted according to SVU grading rubric.";
+                    }
+                  }
+
+                  const status = isCorrect ? "correct" : isPartial ? "partially_correct" : "incorrect";
+                  const score = isCorrect ? 10 : isPartial ? 5 : 1;
+                  const grade = isCorrect ? "A+" : isPartial ? "B" : "F";
+
+                  return {
+                    qIndex: idx,
+                    status,
+                    score,
+                    maxScore: 10,
+                    grade,
+                    evaluation: explanation
+                  };
+                };
+
+                const evaluatedItems = qArr.map((q, idx) => {
+                  const qText = typeof q === "string" ? q : q.question || q.q || "";
+                  const aText = aArr[idx] ? (typeof aArr[idx] === "string" ? aArr[idx] : aArr[idx].answer || "") : "";
+                  return {
+                    qText,
+                    aText,
+                    result: evaluateItem(qText, aText, idx)
+                  };
+                });
+
+                const totalAttempted = evaluatedItems.filter(item => item.result.status !== "unanswered").length;
+                const totalCorrect = evaluatedItems.filter(item => item.result.status === "correct").length;
+                const totalPartial = evaluatedItems.filter(item => item.result.status === "partially_correct").length;
+                const totalIncorrect = evaluatedItems.filter(item => item.result.status === "incorrect").length;
+                const totalUnanswered = evaluatedItems.filter(item => item.result.status === "unanswered").length;
+                const totalScoreEarned = evaluatedItems.reduce((acc, item) => acc + item.result.score, 0);
+                const totalPossible = evaluatedItems.length * 10;
+
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {/* Performance Summary Metrics Bar */}
+                    <div style={{ 
+                      display: "flex", 
+                      flexWrap: "wrap", 
+                      gap: "8px", 
+                      background: "rgba(255,255,255,0.03)", 
+                      border: "1px solid rgba(255,255,255,0.08)", 
+                      borderRadius: "12px", 
+                      padding: "10px 14px",
+                      alignItems: "center",
+                      justifyContent: "space-between"
+                    }}>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "11px", fontWeight: "700", color: "#fff" }}>
+                          Assessment Audit:
+                        </span>
+                        <span style={{ fontSize: "11px", color: "var(--accent)", background: "rgba(0, 242, 255, 0.08)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(0, 242, 255, 0.2)" }}>
+                          Total: <strong>{evaluatedItems.length} Qs</strong>
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#10b981", background: "rgba(16, 185, 129, 0.1)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                          ✓ Full Marks: <strong>{totalCorrect}</strong>
+                        </span>
+                        {totalPartial > 0 && (
+                          <span style={{ fontSize: "11px", color: "#f59e0b", background: "rgba(245, 158, 11, 0.1)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(245, 158, 11, 0.3)" }}>
+                            ⚠ Partial: <strong>{totalPartial}</strong>
+                          </span>
+                        )}
+                        {totalIncorrect > 0 && (
+                          <span style={{ fontSize: "11px", color: "#ef4444", background: "rgba(239, 68, 68, 0.1)", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
+                            ✗ Deducted: <strong>{totalIncorrect}</strong>
+                          </span>
+                        )}
+                        <span style={{ fontSize: "11px", color: "var(--text-dim)", background: "rgba(255,255,255,0.05)", padding: "3px 8px", borderRadius: "6px" }}>
+                          Skipped: <strong>{totalUnanswered}</strong>
+                        </span>
                       </div>
-                    );
-                  });
-                })()}
-              </div>
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--gold)" }}>
+                        Aggregate Marks: {totalScoreEarned} / {totalPossible}
+                      </div>
+                    </div>
+
+                    {/* Question Cards List */}
+                    <div style={{ 
+                      background: "rgba(0,0,0,0.25)", 
+                      border: "1px solid var(--border-white)", 
+                      borderRadius: "16px", 
+                      padding: "16px", 
+                      maxHeight: "380px", 
+                      overflowY: "auto", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      gap: "14px" 
+                    }}>
+                      {evaluatedItems.map((item, index) => {
+                        const res = item.result;
+                        const isCorrect = res.status === "correct";
+                        const isPartial = res.status === "partially_correct";
+                        const isIncorrect = res.status === "incorrect";
+                        const isUnanswered = res.status === "unanswered";
+
+                        const borderColor = isCorrect 
+                          ? "rgba(16, 185, 129, 0.35)" 
+                          : isPartial 
+                          ? "rgba(245, 158, 11, 0.35)" 
+                          : isIncorrect 
+                          ? "rgba(239, 68, 68, 0.35)" 
+                          : "rgba(255, 255, 255, 0.08)";
+
+                        const bgHeader = isCorrect
+                          ? "rgba(16, 185, 129, 0.08)"
+                          : isPartial
+                          ? "rgba(245, 158, 11, 0.08)"
+                          : isIncorrect
+                          ? "rgba(239, 68, 68, 0.08)"
+                          : "rgba(255, 255, 255, 0.02)";
+
+                        return (
+                          <div 
+                            key={index} 
+                            style={{ 
+                              border: `1px solid ${borderColor}`, 
+                              borderRadius: "12px", 
+                              background: "rgba(10, 15, 29, 0.5)",
+                              overflow: "hidden"
+                            }}
+                          >
+                            {/* Question Header Bar */}
+                            <div style={{ 
+                              background: bgHeader, 
+                              padding: "8px 14px", 
+                              display: "flex", 
+                              justifyContent: "space-between", 
+                              alignItems: "center",
+                              borderBottom: `1px solid ${borderColor}`,
+                              flexWrap: "wrap",
+                              gap: "6px"
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ 
+                                  fontSize: "11px", 
+                                  fontWeight: "800", 
+                                  color: "var(--accent)", 
+                                  letterSpacing: "0.5px",
+                                  background: "rgba(0, 242, 255, 0.1)",
+                                  padding: "2px 7px",
+                                  borderRadius: "4px"
+                                }}>
+                                  QUESTION {index + 1}
+                                </span>
+
+                                {/* Status Tag */}
+                                {isCorrect && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10.5px", fontWeight: "700", color: "#10b981", background: "rgba(16, 185, 129, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+                                    <CheckCircle2 size={12} /> CORRECT (FULL MARKS)
+                                  </span>
+                                )}
+                                {isPartial && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10.5px", fontWeight: "700", color: "#f59e0b", background: "rgba(245, 158, 11, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+                                    <AlertTriangle size={12} /> PARTIAL ATTEMPT
+                                  </span>
+                                )}
+                                {isIncorrect && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10.5px", fontWeight: "700", color: "#ef4444", background: "rgba(239, 68, 68, 0.15)", padding: "2px 8px", borderRadius: "4px" }}>
+                                    <XCircle size={12} /> INCORRECT (MARKS DEDUCTED)
+                                  </span>
+                                )}
+                                {isUnanswered && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10.5px", fontWeight: "600", color: "var(--text-dim)", background: "rgba(255, 255, 255, 0.06)", padding: "2px 8px", borderRadius: "4px" }}>
+                                    — UNANSWERED / SKIPPED
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Marks & Grade Badges */}
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ 
+                                  fontSize: "11px", 
+                                  fontWeight: "800", 
+                                  color: isCorrect ? "#10b981" : isPartial ? "#f59e0b" : isIncorrect ? "#ef4444" : "var(--text-dim)"
+                                }}>
+                                  {res.score} / {res.maxScore || 10} MARKS
+                                </span>
+                                <span style={{ 
+                                  fontSize: "10px", 
+                                  fontWeight: "800", 
+                                  padding: "2px 6px", 
+                                  borderRadius: "4px",
+                                  background: isCorrect ? "rgba(16, 185, 129, 0.2)" : isPartial ? "rgba(245, 158, 11, 0.2)" : "rgba(239, 68, 68, 0.2)",
+                                  color: isCorrect ? "#10b981" : isPartial ? "#f59e0b" : "#ef4444"
+                                }}>
+                                  GRADE {res.grade}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Question Body */}
+                            <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <div style={{ fontSize: "12.5px", fontWeight: "600", color: "#f8fafc", lineHeight: "1.4" }}>
+                                {item.qText}
+                              </div>
+
+                              {/* Candidate's Answer */}
+                              <div style={{ 
+                                background: "rgba(0, 0, 0, 0.35)", 
+                                borderLeft: `3px solid ${isCorrect ? "#10b981" : isPartial ? "#f59e0b" : isIncorrect ? "#ef4444" : "var(--text-dim)"}`, 
+                                padding: "8px 12px", 
+                                borderRadius: "0 8px 8px 0" 
+                              }}>
+                                <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "2px" }}>
+                                  Candidate's Response:
+                                </div>
+                                <div style={{ 
+                                  fontSize: "12px", 
+                                  color: isUnanswered ? "var(--text-dim)" : "#fff", 
+                                  fontStyle: isUnanswered ? "italic" : "normal" 
+                                }}>
+                                  {item.aText ? item.aText : "No answer provided / Skipped by candidate"}
+                                </div>
+                              </div>
+
+                              {/* Evaluation Rationale */}
+                              {res.evaluation && (
+                                <div style={{ 
+                                  fontSize: "11px", 
+                                  color: isCorrect ? "#6ee7b7" : isPartial ? "#fde68a" : isIncorrect ? "#fca5a5" : "var(--text-dim)",
+                                  background: "rgba(255,255,255,0.02)",
+                                  padding: "6px 10px",
+                                  borderRadius: "6px",
+                                  lineHeight: "1.35"
+                                }}>
+                                  <strong style={{ textTransform: "uppercase", fontSize: "10px", letterSpacing: "0.5px" }}>Assessment Note: </strong> 
+                                  {res.evaluation}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

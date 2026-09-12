@@ -1106,6 +1106,70 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
                 </table>
               </div>
 
+              {/* Question-Wise Performance Audit (if present) */}
+              {report.scores?.questionWise && report.scores.questionWise.length > 0 && (
+                <div style={{ marginTop: "20px", marginBottom: "16px" }}>
+                  <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <span>Question-Wise Marks & Performance Breakdown</span>
+                    <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: "normal" }}>Answer-wise evaluation & grading</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {report.scores.questionWise.map((qw, idx) => {
+                      const qText = report.questions && report.questions[idx] ? report.questions[idx] : `Question ${idx + 1}`;
+                      const aText = report.answers && report.answers[idx] ? report.answers[idx] : "No response provided.";
+                      const isCorrect = qw.status === "correct";
+                      const isPartial = qw.status === "partially_correct";
+                      const isIncorrect = qw.status === "incorrect";
+                      const isUnanswered = qw.status === "unanswered";
+
+                      const badgeBg = isCorrect ? "rgba(16, 185, 129, 0.15)" : isPartial ? "rgba(245, 158, 11, 0.15)" : isIncorrect ? "rgba(239, 68, 68, 0.15)" : "rgba(255, 255, 255, 0.05)";
+                      const badgeBorder = isCorrect ? "rgba(16, 185, 129, 0.3)" : isPartial ? "rgba(245, 158, 11, 0.3)" : isIncorrect ? "rgba(239, 68, 68, 0.3)" : "rgba(255, 255, 255, 0.1)";
+                      const badgeColor = isCorrect ? "#10b981" : isPartial ? "#f59e0b" : isIncorrect ? "#ef4444" : "var(--muted)";
+
+                      return (
+                        <div key={idx} style={{ 
+                          background: "rgba(15, 23, 42, 0.6)", 
+                          border: `1px solid ${badgeBorder}`, 
+                          borderRadius: "12px", 
+                          padding: "12px 14px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "6px"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "12px", fontWeight: "700", color: "#38bdf8" }}>Q{idx + 1}</span>
+                              <span style={{ fontSize: "10.5px", fontWeight: "700", background: badgeBg, border: `1px solid ${badgeBorder}`, color: badgeColor, padding: "2px 8px", borderRadius: "4px" }}>
+                                {isCorrect ? "✓ FULL MARKS" : isPartial ? "⚠ PARTIAL" : isIncorrect ? "✗ MARKS DEDUCTED" : "— SKIPPED"}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "12px", fontWeight: "800", color: badgeColor }}>
+                                {qw.score} / {qw.maxScore || 10} Marks
+                              </span>
+                              <span style={{ fontSize: "11px", fontWeight: "800", color: badgeColor, background: badgeBg, padding: "2px 6px", borderRadius: "4px" }}>
+                                Grade {qw.grade}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: "12.5px", color: "#f1f5f9", fontWeight: "500" }}>
+                            {qText}
+                          </div>
+                          <div style={{ fontSize: "11.5px", color: isUnanswered ? "var(--muted)" : "#cbd5e1", background: "rgba(0,0,0,0.25)", padding: "6px 10px", borderRadius: "6px", borderLeft: `2px solid ${badgeColor}` }}>
+                            <strong style={{ color: badgeColor }}>Your Answer:</strong> {aText}
+                          </div>
+                          {qw.evaluation && (
+                            <div style={{ fontSize: "11px", color: isCorrect ? "#6ee7b7" : isPartial ? "#fde68a" : isIncorrect ? "#fca5a5" : "var(--muted)", fontStyle: "italic" }}>
+                              <strong>Assessor Feedback:</strong> {qw.evaluation}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Verdict and AI Recommendations */}
               <div className="bottom-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                 <div className="card-box">
