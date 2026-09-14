@@ -60,6 +60,7 @@ export interface Evaluation {
 }
 
 export interface ReportCard {
+  id?: number;
   interviewId: string;
   studentName: string;
   email: string;

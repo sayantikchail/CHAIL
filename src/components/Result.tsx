@@ -16,62 +16,13 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
       try {
         const response = await fetch(`/api/interview/latest/${user.id}`);
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
+        if (!response.ok) throw new Error(data.error || "No examination record found in database.");
 
         setReport(data);
       } catch (err: any) {
-        console.error("Failed to load evaluation, using fallback marksheet:", err);
-        // Reliable fallback matching evaluation parameters and SVU branding
-        const fallbackReport: ReportCard = {
-          interviewId: `INT-SVU${Math.floor(Math.random() * 9000 + 1000)}`,
-          studentName: user.name || "Sayantik Chail",
-          email: user.email || "sayantikchail@gmail.com",
-          qualification: user.qualification || "M.Tech CSE",
-          institution: user.institution || "Swami Vivekananda University",
-          stream: user.stream || "Computer Science & Engineering",
-          overallScore: 425,
-          percentage: 85,
-          finalGrade: "A",
-          performanceLevel: "EXCELLENT",
-          strengths: [
-            "Demonstrated superb command over core domain subjects and logical structuring.",
-            "Articulated answers with steady and professional pacing, maintaining high explanation clarity.",
-            "Adapted quickly to technical scenario questions, displaying stellar composure."
-          ],
-          developmentAreas: [
-            "Explain structural architecture or code blocks with practical analogies where possible.",
-            "Formulate detailed project application models rather than general concepts."
-          ],
-          summary: "The candidate performed exceptionally well across all core parameters. Explanation clarity was stellar, and the technical depth matches physical academic board expectations. Highly recommended for full-stack deployment roles.",
-          feedback: [
-            "Practice structuring scenarios using standard design patterns for higher academic grades.",
-            "Ensure usage of specific industry vocabulary to strengthen domain depth rating.",
-            "Maintain current composure levels during physical campus recruiter interviews."
-          ],
-          scores: {
-            confidence: { score: 90, remark: "Outstanding poise" },
-            clarity: { score: 85, remark: "Highly structured explanations" },
-            relevance: { score: 82, remark: "Perfect context match" },
-            technicalDepth: { score: 88, remark: "Deep theoretical command" },
-            grammar: { score: 80, remark: "Very clear phrasing" }
-          },
-          questions: [
-            "What is the worst-case time complexity of searching for an element in a balanced Binary Search Tree (BST)?",
-            "Explain the main difference between optimistic locking and pessimistic locking in database transaction concurrency.",
-            "Detail the system architecture of a scalable, fault-tolerant real-time notification system. What protocols and databases would you implement?",
-            "Which HTTP status code is returned when a client tries to access a protected resource without proper authentication credentials?",
-            "Discuss a challenging project from your resume. What was the most critical bottleneck you encountered, and how did you resolve it?"
-          ],
-          answers: [
-            "O(log N)",
-            "Optimistic locking checks versions on write, whereas pessimistic locking locks rows before editing.",
-            "Real-time notifications are designed using WebSockets and Redis Pub/Sub for rapid horizontal scaling.",
-            "401 Unauthorized status is returned for missing credentials.",
-            "Optimized a heavy database join operation, reducing latency by index partitioning."
-          ],
-          date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-        };
-        setReport(fallbackReport);
+        console.error("Failed to load evaluation from database:", err);
+        // Do NOT generate fake, random, placeholder, or hardcoded student data.
+        setReport(null);
       } finally {
         setLoading(false);
       }
@@ -102,7 +53,7 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
     return (
       <div className="min-h-screen bg-[#01040c] text-white flex flex-col justify-center items-center p-6 text-center">
         <h2 className="text-2xl font-bold text-red-400">No Interview Marks Found</h2>
-        <p className="text-slate-300 mt-2">Please complete the interview session first to generate a report.</p>
+        <p className="text-slate-300 mt-2 max-w-md">No completed examination or marksheet data found in the database for {user.name || "this student"}. Please complete an interview session first.</p>
         <button onClick={onRetry} className="mt-4 px-6 py-3 bg-cyan-400 rounded-xl font-bold text-black border-none cursor-pointer">
           Start Interview 🚀
         </button>
@@ -1214,7 +1165,7 @@ export default function Result({ user, onRetry, showNotification }: ResultProps)
               <div className="buttons">
                 <button className="ghost" onClick={onRetry}>Retry Interview</button>
                 <a 
-                  href={`/api/interview/print/${user.id}`}
+                  href={`/api/interview/print/${user.id}${report?.id ? `/${report.id}` : ''}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="print-btn-link"
