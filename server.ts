@@ -2733,7 +2733,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SVU Official Transcript - ${studentName}</title>
+  <title>SVU Official Academic Transcript - ${studentName}</title>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *, *:before, *:after {
@@ -2742,63 +2742,109 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       print-color-adjust: exact !important;
     }
     body {
-      background: #0f172a;
+      background: #0b1120;
       color: #0f172a;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 0;
-      padding: 16px 8px;
-      font-size: 8.5px;
-      line-height: 1.28;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
+      padding: 0;
+      font-size: 9.5px;
+      line-height: 1.35;
     }
+    /* Web preview top control toolbar */
+    .screen-toolbar {
+      background: #0f172a;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .screen-toolbar .title-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .screen-toolbar .btn-print {
+      background: #00f2ff;
+      color: #04101e;
+      border: none;
+      font-weight: 800;
+      padding: 7px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 12px rgba(0, 242, 255, 0.4);
+      transition: all 0.2s;
+    }
+    .screen-toolbar .btn-print:hover {
+      background: #38bdf8;
+      transform: translateY(-1px);
+    }
+    .screen-toolbar .btn-close {
+      background: rgba(255,255,255,0.08);
+      color: #cbd5e1;
+      border: 1px solid rgba(255,255,255,0.18);
+      font-weight: 600;
+      padding: 7px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .screen-toolbar .btn-close:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    /* Print Document Container */
     .print-container {
       width: 100%;
-      max-width: 820px;
-      min-height: 1080px;
+      max-width: 840px;
       background: #ffffff;
-      margin: 0 auto;
-      padding: 6px;
+      margin: 18px auto;
+      padding: 10px;
       box-sizing: border-box;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      display: flex;
-      flex-direction: column;
+      box-shadow: 0 16px 45px rgba(0,0,0,0.5);
+      border-radius: 8px;
     }
     .marksheet-border {
-      flex: 1;
       border: 3px double #0d235c;
-      padding: 12px 16px;
+      padding: 16px 20px;
       border-radius: 6px;
       box-sizing: border-box;
       background: #ffffff;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      min-height: 1060px;
-      gap: 3.5px;
+      gap: 6px;
     }
+
+    /* Header styling */
     .sheet-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 2px;
+      gap: 12px;
       border-bottom: 2px solid #0d235c;
-      padding-bottom: 3px;
+      padding-bottom: 5px;
+      margin-bottom: 2px;
     }
     .logo-box {
-      width: 50px;
-      height: 50px;
-      border-radius: 6px;
+      width: 54px;
+      height: 54px;
+      border-radius: 8px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       font-family: 'Inter', sans-serif;
       font-weight: 900;
-      font-size: 13px;
+      font-size: 13.5px;
       text-align: center;
       line-height: 1.1;
       flex-shrink: 0;
@@ -2812,68 +2858,71 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       border: 2px solid #c21c24;
       color: #c21c24;
       background: #fff5f5;
-      font-size: 12px;
+      font-size: 13px;
     }
     .logo-subtitle {
-      font-size: 6px;
+      font-size: 6.5px;
       font-weight: 800;
-      letter-spacing: 0.2px;
+      letter-spacing: 0.3px;
     }
     .header-text {
       text-align: center;
       flex: 1;
     }
     .header-text h2 {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 900;
       color: #0d235c;
       margin: 0;
       letter-spacing: 0.5px;
+      line-height: 1.15;
     }
     .header-text h3 {
-      font-size: 8.5px;
+      font-size: 9.5px;
       font-weight: 800;
       color: #334155;
-      margin: 1px 0 0 0;
+      margin: 2px 0 0 0;
       letter-spacing: 0.2px;
     }
     .header-text .subtitle {
-      font-size: 7.5px;
+      font-size: 8px;
       color: #64748b;
-      margin: 1px 0 0 0;
+      margin: 2px 0 0 0;
       font-weight: 500;
     }
+
+    /* Title Bars */
     .marksheet-title-bar {
-      background: #0d235c;
+      background: linear-gradient(90deg, #0d235c 0%, #1e3a8a 100%);
       color: #ffffff !important;
       font-weight: 900;
-      font-size: 10px;
+      font-size: 11px;
       text-align: center;
-      padding: 3.5px 6px;
+      padding: 5px 8px;
       border-radius: 3px;
       letter-spacing: 0.8px;
-      margin-bottom: 2.5px;
     }
     .sheet-section-banner {
       background: #c21c24;
       color: #ffffff !important;
       font-weight: 800;
-      font-size: 8px;
-      padding: 2px 6px;
+      font-size: 8.5px;
+      padding: 2.5px 8px;
       border-radius: 2px;
-      margin-bottom: 2px;
       letter-spacing: 0.4px;
       width: fit-content;
+      margin-top: 1px;
     }
+
+    /* Tables */
     .profile-table, .scholastic-table, .grade-chart-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 8.5px;
-      margin-bottom: 2.5px;
+      font-size: 9px;
     }
     .profile-table td {
       border: 1px solid #cbd5e1;
-      padding: 3.5px 6px;
+      padding: 4.5px 8px;
       color: #0f172a;
     }
     .profile-table .lbl {
@@ -2887,58 +2936,64 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       width: 32%;
       font-weight: 600;
     }
+
     .scholastic-table th {
       background: #0d235c;
       color: #ffffff !important;
       font-weight: 800;
-      padding: 4px 6px;
-      font-size: 8px;
+      padding: 5px 8px;
+      font-size: 8.5px;
       border: 1px solid #0d235c;
       text-align: center;
+      letter-spacing: 0.3px;
     }
     .scholastic-table td {
       border: 1px solid #cbd5e1;
-      padding: 3.5px 6px;
+      padding: 4.5px 8px;
       color: #0f172a;
-      font-size: 8px;
-      line-height: 1.25;
+      font-size: 9px;
+      line-height: 1.3;
     }
     .scholastic-table td.remark-cell {
-      font-size: 7.5px;
-      line-height: 1.2;
+      font-size: 8px;
+      line-height: 1.25;
       color: #334155;
     }
     .scholastic-table tbody tr:nth-child(even) {
       background: #f8fbff;
     }
+
+    /* Aggregate Summary Bar */
     .aggregate-summary-bar {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 1px;
       background: #0d235c;
-      border: 1px solid #0d235c;
+      border: 1.5px solid #0d235c;
       border-radius: 4px;
       overflow: hidden;
-      margin-bottom: 2.5px;
     }
     .summary-col {
       background: #ffffff;
-      padding: 3.5px 4px;
+      padding: 5px 6px;
       text-align: center;
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      gap: 1.5px;
     }
     .summary-col .lbl {
-      font-size: 7px;
+      font-size: 7.5px;
       font-weight: 800;
       color: #64748b;
+      letter-spacing: 0.2px;
     }
     .summary-col .val {
-      font-size: 11.5px;
+      font-size: 13px;
       font-weight: 900;
       color: #0d235c;
     }
+
+    /* Syllabus Evaluation Audit Bar */
     .exam-audit-bar {
       display: flex;
       justify-content: space-between;
@@ -2946,30 +3001,30 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       background: #f8fafc;
       border: 1px solid #cbd5e1;
       border-radius: 3px;
-      padding: 3px 8px;
-      font-size: 7.5px;
+      padding: 4px 10px;
+      font-size: 8px;
       color: #334155;
-      margin-bottom: 2.5px;
     }
+
+    /* Strengths and Development Grid */
     .strengths-dev-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      margin-bottom: 2.5px;
+      gap: 8px;
     }
     .side-box {
       border: 1px solid #cbd5e1;
       border-radius: 4px;
-      padding: 4px 6px;
+      padding: 6px 9px;
       background: #fafbfc;
     }
     .side-title {
-      font-size: 8px;
+      font-size: 8.5px;
       font-weight: 800;
       color: #0d235c;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
       border-bottom: 1px solid #cbd5e1;
-      padding-bottom: 1px;
+      padding-bottom: 2px;
       letter-spacing: 0.2px;
     }
     .side-box ul {
@@ -2978,130 +3033,143 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       margin: 0;
     }
     .side-box li {
-      font-size: 7.5px;
+      font-size: 8px;
       color: #334155;
-      margin-bottom: 1px;
-      line-height: 1.2;
+      margin-bottom: 2px;
+      line-height: 1.25;
     }
+
+    /* AI Appraisal Block */
     .appraisal-box {
       border: 1px solid #cbd5e1;
       border-radius: 4px;
-      padding: 4px 6px;
+      padding: 6px 10px;
       background: #fcfdfe;
-      margin-bottom: 2.5px;
     }
     .appraisal-title {
-      font-size: 8px;
+      font-size: 8.5px;
       font-weight: 800;
       color: #c21c24;
-      margin-bottom: 1px;
-      letter-spacing: 0.2px;
+      margin-bottom: 3px;
+      letter-spacing: 0.3px;
     }
     .appraisal-box p {
-      font-size: 7.5px;
+      font-size: 8px;
       color: #334155;
       margin: 0;
-      line-height: 1.25;
+      line-height: 1.35;
     }
+
+    /* Grading Scale Table */
     .grade-chart-table {
-      margin-bottom: 2px;
-      font-size: 7px;
+      font-size: 7.5px;
       text-align: center;
     }
     .grade-chart-table th {
       background: #f1f5f9;
       color: #475569;
       font-weight: 800;
-      padding: 2px 4px;
+      padding: 3px 5px;
       border: 1px solid #cbd5e1;
     }
     .grade-chart-table td {
       border: 1px solid #cbd5e1;
-      padding: 2px 4px;
+      padding: 3px 5px;
       color: #64748b;
     }
+
+    /* Signatures Row */
     .sheet-signatures {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      margin-top: auto;
-      padding-top: 3px;
-      border-top: 1px solid #cbd5e1;
+      padding-top: 6px;
+      margin-top: 4px;
+      border-top: 1.5px solid #0d235c;
     }
     .sig-col {
       text-align: center;
       width: 32%;
     }
-    .sig-line {
-      font-size: 8.5px;
-      font-weight: bold;
-      color: #0f172a;
-      border-bottom: 1.5px solid #475569;
-      padding-bottom: 2px;
-      margin-bottom: 2px;
-    }
     .sig-line-sig {
       font-family: 'Caveat', serif;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
       color: #0d235c;
       border-bottom: 1.5px solid #475569;
       padding-bottom: 2px;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
       line-height: 1.1;
     }
     .sig-line-chail {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 32px;
+      height: 34px;
       border-bottom: 1.5px solid #475569;
       padding-bottom: 1px;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
     .sig-lbl {
-      font-size: 7px;
-      color: #64748b;
+      font-size: 7.5px;
+      color: #475569;
       text-transform: uppercase;
-      font-weight: bold;
+      font-weight: 800;
       letter-spacing: 0.3px;
     }
-    .dotted-seal {
-      border: 1.5px dashed #ff9900;
-      width: 42px;
-      height: 42px;
+    .sig-sub {
+      font-size: 6.5px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .university-seal {
+      width: 60px;
+      height: 60px;
+      border: 2px double #c21c24;
       border-radius: 50%;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      color: #ff9900 !important;
+      color: #c21c24 !important;
       font-weight: 800;
       font-size: 6px;
       text-align: center;
-      padding: 1px;
+      padding: 2px;
       margin: 0 auto;
-      line-height: 1.05;
+      line-height: 1.1;
+      background: rgba(194, 28, 36, 0.02);
+      box-shadow: 0 0 8px rgba(194, 28, 36, 0.1);
     }
     .seal-small {
       font-size: 5px;
-      font-weight: 600;
+      font-weight: 700;
+      color: #0d235c;
     }
+
     .transcript-footnote {
       text-align: center;
-      font-size: 6.5px;
-      color: #94a3b8;
-      margin-top: 1px;
-      letter-spacing: 0.2px;
+      font-size: 7px;
+      color: #64748b;
+      margin-top: 4px;
+      letter-spacing: 0.3px;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 3px;
     }
+
+    /* Print media query - Guaranteed single page A4 */
     @media print {
       @page {
         size: A4 portrait;
-        margin: 5mm 6mm;
+        margin: 6mm 8mm 6mm 8mm;
+      }
+      .no-print {
+        display: none !important;
       }
       html, body {
         width: 100% !important;
-        height: 100% !important;
+        height: auto !important;
+        min-height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
@@ -3111,34 +3179,22 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       .print-container {
         width: 100% !important;
         max-width: 100% !important;
-        height: calc(297mm - 10mm) !important;
-        min-height: calc(297mm - 10mm) !important;
-        max-height: calc(297mm - 10mm) !important;
         margin: 0 !important;
         padding: 0 !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
         page-break-inside: avoid !important;
         page-break-after: avoid !important;
         page-break-before: avoid !important;
-        overflow: hidden !important;
       }
       .marksheet-border {
         width: 100% !important;
-        height: 100% !important;
-        min-height: calc(297mm - 10mm) !important;
-        max-height: calc(297mm - 10mm) !important;
         box-sizing: border-box !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
         padding: 10px 14px !important;
-        border: 2.5px double #0d235c !important;
+        border: 2px double #0d235c !important;
         border-radius: 4px !important;
+        gap: 5px !important;
         page-break-inside: avoid !important;
-        overflow: hidden !important;
       }
       * {
         page-break-inside: avoid !important;
@@ -3148,6 +3204,22 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
   </style>
 </head>
 <body>
+  <!-- Screen Navigation Bar -->
+  <div class="screen-toolbar no-print">
+    <div class="title-area">
+      <span style="font-weight: 800; color: #fff; font-size: 13px;">🎓 SVU Academic Transcript & Marksheet</span>
+      <span style="background: rgba(0,242,255,0.15); border: 1px solid rgba(0,242,255,0.3); color: #00f2ff; font-size: 10.5px; padding: 2px 8px; border-radius: 4px; font-weight: 700;">DIGITALLY VERIFIED</span>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button onclick="window.print()" class="btn-print">
+        🖨️ Print / Save as PDF
+      </button>
+      <button onclick="window.close()" class="btn-close">
+        ✕ Close
+      </button>
+    </div>
+  </div>
+
   <div class="print-container">
     <div class="marksheet-border">
       
@@ -3223,37 +3295,37 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
         <tbody>
           <tr>
             <td><b>Communication Confidence & Conviction</b></td>
-            <td>10</td>
-            <td><b>${(scores.confidence.score / 10).toFixed(1)}</b></td>
-            <td><b>${getGrade(scores.confidence.score)}</b></td>
+            <td style="text-align: center;">100</td>
+            <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.confidence.score}</td>
+            <td style="text-align: center; font-weight: 800;">${getGrade(scores.confidence.score)}</td>
             <td class="remark-cell">${scores.confidence.remark}</td>
           </tr>
           <tr>
             <td><b>Explanation Structure & Clarity</b></td>
-            <td>10</td>
-            <td><b>${(scores.clarity.score / 10).toFixed(1)}</b></td>
-            <td><b>${getGrade(scores.clarity.score)}</b></td>
+            <td style="text-align: center;">100</td>
+            <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.clarity.score}</td>
+            <td style="text-align: center; font-weight: 800;">${getGrade(scores.clarity.score)}</td>
             <td class="remark-cell">${scores.clarity.remark}</td>
           </tr>
           <tr>
             <td><b>Relevance & Context Match</b></td>
-            <td>10</td>
-            <td><b>${(scores.relevance.score / 10).toFixed(1)}</b></td>
-            <td><b>${getGrade(scores.relevance.score)}</b></td>
+            <td style="text-align: center;">100</td>
+            <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.relevance.score}</td>
+            <td style="text-align: center; font-weight: 800;">${getGrade(scores.relevance.score)}</td>
             <td class="remark-cell">${scores.relevance.remark}</td>
           </tr>
           <tr>
             <td><b>Technical Depth & Domain Knowledge</b></td>
-            <td>10</td>
-            <td><b>${(scores.technicalDepth.score / 10).toFixed(1)}</b></td>
-            <td><b>${getGrade(scores.technicalDepth.score)}</b></td>
+            <td style="text-align: center;">100</td>
+            <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.technicalDepth.score}</td>
+            <td style="text-align: center; font-weight: 800;">${getGrade(scores.technicalDepth.score)}</td>
             <td class="remark-cell">${scores.technicalDepth.remark}</td>
           </tr>
           <tr>
             <td><b>Grammar, Sentence Phrasing & Vocabulary</b></td>
-            <td>10</td>
-            <td><b>${(scores.grammar.score / 10).toFixed(1)}</b></td>
-            <td><b>${getGrade(scores.grammar.score)}</b></td>
+            <td style="text-align: center;">100</td>
+            <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.grammar.score}</td>
+            <td style="text-align: center; font-weight: 800;">${getGrade(scores.grammar.score)}</td>
             <td class="remark-cell">${scores.grammar.remark}</td>
           </tr>
         </tbody>
@@ -3263,7 +3335,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       <div class="aggregate-summary-bar">
         <div class="summary-col">
           <span class="lbl">AGGREGATE SCORE</span>
-          <span class="val">${(interview.overall_score / 10).toFixed(1)} / 50</span>
+          <span class="val">${interview.overall_score} / 500</span>
         </div>
         <div class="summary-col">
           <span class="lbl">PERCENTAGE RATING</span>
@@ -3275,7 +3347,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
         </div>
         <div class="summary-col">
           <span class="lbl">PERFORMANCE BAND</span>
-          <span class="val">${interview.performance_level}</span>
+          <span class="val" style="font-size: 11px;">${interview.performance_level}</span>
         </div>
       </div>
 
@@ -3340,32 +3412,38 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
             <img src="/api/assets/chail-signature" alt="Chail Signature" style="max-height: 38px; max-width: 120px; mix-blend-mode: multiply;" referrerPolicy="no-referrer" />
           </div>
           <div class="sig-lbl">Applicant Signatory</div>
+          <div class="sig-sub">Candidate Digital Stamp</div>
         </div>
         <div class="sig-col">
-          <div class="dotted-seal">
-            <span>SVU & ChAIL</span>
-            <span class="seal-small">VERIFIED BOARD</span>
-            <span class="seal-small">ACCREDITED</span>
+          <div class="university-seal">
+            <span style="color: #0d235c; font-size: 7px; font-weight: 900;">SVU • ChAIL</span>
+            <span class="seal-small">EXAMINATION</span>
+            <span class="seal-small">COUNCIL</span>
+            <span style="font-size: 5px; color: #c21c24; margin-top: 1px;">ACCREDITED</span>
           </div>
         </div>
         <div class="sig-col">
           <div class="sig-line-sig">Swami Vivekananda University</div>
           <div class="sig-lbl">Authorized Signatory</div>
+          <div class="sig-sub">Controller of Examinations, SVU</div>
         </div>
       </div>
 
       <div class="transcript-footnote">
-        Official University Document • Reference ID: ${interviewId} • Digitally Certified via SVU Examination Portal
+        Official University Document • Reference ID: ${interviewId} • Digitally Certified via SVU Examination & AI Evaluation Portal
       </div>
 
     </div>
   </div>
   <script>
-    window.onload = function() {
-      setTimeout(function() {
-        window.print();
-      }, 600);
-    };
+    // Auto-open print dialog if triggered directly for print
+    if (window.location.search.includes('autoprint=true')) {
+      window.onload = function() {
+        setTimeout(function() {
+          window.print();
+        }, 500);
+      };
+    }
   </script>
 </body>
 </html>`;
