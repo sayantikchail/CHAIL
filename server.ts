@@ -2712,6 +2712,16 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     const totalQuestions = questions.length || 15;
     const unansweredCount = Math.max(0, totalQuestions - attemptedCount);
 
+    // Filter top 5 questions for itemized examination audit log (prioritizing answered/attempted ones)
+    const auditQuestions = evaluatedList
+      .slice()
+      .sort((a, b) => {
+        if (a.status !== "unanswered" && b.status === "unanswered") return -1;
+        if (a.status === "unanswered" && b.status !== "unanswered") return 1;
+        return a.qIndex - b.qIndex;
+      })
+      .slice(0, 5);
+
     const getGrade = (score: number): string => {
       if (score >= 90) return "A+";
       if (score >= 80) return "A";
@@ -2721,6 +2731,24 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       return "F";
     };
 
+    const getGradePoint = (score: number): number => {
+      if (score >= 90) return 10;
+      if (score >= 80) return 9;
+      if (score >= 70) return 8;
+      if (score >= 60) return 7;
+      if (score >= 50) return 6;
+      return 0;
+    };
+
+    const escapeHtml = (str: string) => {
+      return (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
     const studentName = user?.name || "Student";
     const email = user?.email || "";
     const stream = interview.stream || "Computer Science & Engineering";
@@ -2728,6 +2756,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     const institution = user?.institution || "Swami Vivekananda University";
     const interviewId = `INT-INT-SVU${interview.id}`;
     const date = interview.date_created;
+    const regNo = user?.registration_no || user?.roll_no || `SVU/2026/REG-${user?.id || interview.user_id || '330001'}`;
+    const sgpa = ((interview.percentage || 0) / 10).toFixed(2);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -2805,9 +2835,10 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     /* Print Document Container */
     .print-container {
       width: 100%;
-      max-width: 840px;
+      max-width: 860px;
+      min-height: 1140px;
       background: #ffffff;
-      margin: 18px auto;
+      margin: 16px auto 30px;
       padding: 10px;
       box-sizing: border-box;
       box-shadow: 0 16px 45px rgba(0,0,0,0.5);
@@ -2815,13 +2846,15 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     }
     .marksheet-border {
       border: 3px double #0d235c;
-      padding: 16px 20px;
+      padding: 12px 16px;
       border-radius: 6px;
       box-sizing: border-box;
       background: #ffffff;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      justify-content: space-between;
+      min-height: 1120px;
+      gap: 4px;
     }
 
     /* Header styling */
@@ -2831,12 +2864,11 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       justify-content: space-between;
       gap: 12px;
       border-bottom: 2px solid #0d235c;
-      padding-bottom: 5px;
-      margin-bottom: 2px;
+      padding-bottom: 4px;
     }
     .logo-box {
-      width: 54px;
-      height: 54px;
+      width: 50px;
+      height: 50px;
       border-radius: 8px;
       display: flex;
       flex-direction: column;
@@ -2844,7 +2876,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       align-items: center;
       font-family: 'Inter', sans-serif;
       font-weight: 900;
-      font-size: 13.5px;
+      font-size: 12.5px;
       text-align: center;
       line-height: 1.1;
       flex-shrink: 0;
@@ -2858,10 +2890,10 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       border: 2px solid #c21c24;
       color: #c21c24;
       background: #fff5f5;
-      font-size: 13px;
+      font-size: 12px;
     }
     .logo-subtitle {
-      font-size: 6.5px;
+      font-size: 6px;
       font-weight: 800;
       letter-spacing: 0.3px;
     }
@@ -2870,24 +2902,24 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       flex: 1;
     }
     .header-text h2 {
-      font-size: 18px;
+      font-size: 16.5px;
       font-weight: 900;
       color: #0d235c;
       margin: 0;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
       line-height: 1.15;
     }
     .header-text h3 {
-      font-size: 9.5px;
+      font-size: 8.5px;
       font-weight: 800;
       color: #334155;
-      margin: 2px 0 0 0;
+      margin: 1.5px 0 0 0;
       letter-spacing: 0.2px;
     }
     .header-text .subtitle {
-      font-size: 8px;
+      font-size: 7px;
       color: #64748b;
-      margin: 2px 0 0 0;
+      margin: 1.5px 0 0 0;
       font-weight: 500;
     }
 
@@ -2896,99 +2928,99 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       background: linear-gradient(90deg, #0d235c 0%, #1e3a8a 100%);
       color: #ffffff !important;
       font-weight: 900;
-      font-size: 11px;
+      font-size: 9.5px;
       text-align: center;
-      padding: 5px 8px;
+      padding: 3.5px 8px;
       border-radius: 3px;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
     }
     .sheet-section-banner {
       background: #c21c24;
       color: #ffffff !important;
       font-weight: 800;
-      font-size: 8.5px;
-      padding: 2.5px 8px;
+      font-size: 7.5px;
+      padding: 2px 6px;
       border-radius: 2px;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.3px;
       width: fit-content;
       margin-top: 1px;
     }
 
     /* Tables */
-    .profile-table, .scholastic-table, .grade-chart-table {
+    .profile-table, .scholastic-table, .audit-table, .grade-chart-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 9px;
+      font-size: 8px;
     }
     .profile-table td {
       border: 1px solid #cbd5e1;
-      padding: 4.5px 8px;
+      padding: 3px 6px;
       color: #0f172a;
     }
     .profile-table .lbl {
       font-weight: 700;
       background: #f8fafc;
       color: #334155;
-      width: 18%;
+      width: 17%;
     }
     .profile-table .val {
       color: #0f172a;
-      width: 32%;
+      width: 33%;
       font-weight: 600;
     }
 
-    .scholastic-table th {
+    .scholastic-table th, .audit-table th {
       background: #0d235c;
       color: #ffffff !important;
       font-weight: 800;
-      padding: 5px 8px;
-      font-size: 8.5px;
+      padding: 4px 6px;
+      font-size: 7.5px;
       border: 1px solid #0d235c;
       text-align: center;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
     }
-    .scholastic-table td {
+    .scholastic-table td, .audit-table td {
       border: 1px solid #cbd5e1;
-      padding: 4.5px 8px;
+      padding: 3px 6px;
       color: #0f172a;
-      font-size: 9px;
-      line-height: 1.3;
+      font-size: 8px;
+      line-height: 1.2;
     }
     .scholastic-table td.remark-cell {
-      font-size: 8px;
-      line-height: 1.25;
+      font-size: 7.5px;
+      line-height: 1.15;
       color: #334155;
     }
-    .scholastic-table tbody tr:nth-child(even) {
+    .scholastic-table tbody tr:nth-child(even), .audit-table tbody tr:nth-child(even) {
       background: #f8fbff;
     }
 
     /* Aggregate Summary Bar */
     .aggregate-summary-bar {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 1px;
       background: #0d235c;
       border: 1.5px solid #0d235c;
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
     }
     .summary-col {
       background: #ffffff;
-      padding: 5px 6px;
+      padding: 3.5px 5px;
       text-align: center;
       display: flex;
       flex-direction: column;
-      gap: 1.5px;
+      gap: 1px;
     }
     .summary-col .lbl {
-      font-size: 7.5px;
+      font-size: 6.5px;
       font-weight: 800;
       color: #64748b;
       letter-spacing: 0.2px;
     }
     .summary-col .val {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 900;
       color: #0d235c;
     }
@@ -3001,8 +3033,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       background: #f8fafc;
       border: 1px solid #cbd5e1;
       border-radius: 3px;
-      padding: 4px 10px;
-      font-size: 8px;
+      padding: 2.5px 7px;
+      font-size: 7px;
       color: #334155;
     }
 
@@ -3010,21 +3042,21 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
     .strengths-dev-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 5px;
     }
     .side-box {
       border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 6px 9px;
+      border-radius: 3px;
+      padding: 4px 7px;
       background: #fafbfc;
     }
     .side-title {
-      font-size: 8.5px;
+      font-size: 7.5px;
       font-weight: 800;
       color: #0d235c;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       border-bottom: 1px solid #cbd5e1;
-      padding-bottom: 2px;
+      padding-bottom: 1px;
       letter-spacing: 0.2px;
     }
     .side-box ul {
@@ -3033,48 +3065,48 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       margin: 0;
     }
     .side-box li {
-      font-size: 8px;
+      font-size: 7px;
       color: #334155;
-      margin-bottom: 2px;
-      line-height: 1.25;
+      margin-bottom: 1px;
+      line-height: 1.15;
     }
 
     /* AI Appraisal Block */
     .appraisal-box {
       border: 1px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 6px 10px;
+      border-radius: 3px;
+      padding: 4px 7px;
       background: #fcfdfe;
     }
     .appraisal-title {
-      font-size: 8.5px;
+      font-size: 7.5px;
       font-weight: 800;
       color: #c21c24;
-      margin-bottom: 3px;
-      letter-spacing: 0.3px;
+      margin-bottom: 1.5px;
+      letter-spacing: 0.2px;
     }
     .appraisal-box p {
-      font-size: 8px;
+      font-size: 7px;
       color: #334155;
       margin: 0;
-      line-height: 1.35;
+      line-height: 1.25;
     }
 
     /* Grading Scale Table */
     .grade-chart-table {
-      font-size: 7.5px;
+      font-size: 6.8px;
       text-align: center;
     }
     .grade-chart-table th {
       background: #f1f5f9;
       color: #475569;
       font-weight: 800;
-      padding: 3px 5px;
+      padding: 2px 3.5px;
       border: 1px solid #cbd5e1;
     }
     .grade-chart-table td {
       border: 1px solid #cbd5e1;
-      padding: 3px 5px;
+      padding: 2px 3.5px;
       color: #64748b;
     }
 
@@ -3083,48 +3115,47 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      padding-top: 6px;
-      margin-top: 4px;
+      padding-top: 4px;
       border-top: 1.5px solid #0d235c;
     }
     .sig-col {
       text-align: center;
-      width: 32%;
+      width: 28%;
     }
     .sig-line-sig {
       font-family: 'Caveat', serif;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: bold;
       color: #0d235c;
       border-bottom: 1.5px solid #475569;
-      padding-bottom: 2px;
-      margin-bottom: 3px;
+      padding-bottom: 1px;
+      margin-bottom: 2px;
       line-height: 1.1;
     }
     .sig-line-chail {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 34px;
+      height: 30px;
       border-bottom: 1.5px solid #475569;
       padding-bottom: 1px;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
     }
     .sig-lbl {
-      font-size: 7.5px;
+      font-size: 7px;
       color: #475569;
       text-transform: uppercase;
       font-weight: 800;
       letter-spacing: 0.3px;
     }
     .sig-sub {
-      font-size: 6.5px;
+      font-size: 6px;
       color: #64748b;
       margin-top: 1px;
     }
     .university-seal {
-      width: 60px;
-      height: 60px;
+      width: 50px;
+      height: 50px;
       border: 2px double #c21c24;
       border-radius: 50%;
       display: flex;
@@ -3133,43 +3164,48 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       align-items: center;
       color: #c21c24 !important;
       font-weight: 800;
-      font-size: 6px;
+      font-size: 5px;
       text-align: center;
       padding: 2px;
       margin: 0 auto;
-      line-height: 1.1;
+      line-height: 1.05;
       background: rgba(194, 28, 36, 0.02);
-      box-shadow: 0 0 8px rgba(194, 28, 36, 0.1);
+      box-shadow: 0 0 6px rgba(194, 28, 36, 0.1);
     }
     .seal-small {
-      font-size: 5px;
+      font-size: 4px;
       font-weight: 700;
       color: #0d235c;
+    }
+    .qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
     }
 
     .transcript-footnote {
       text-align: center;
-      font-size: 7px;
+      font-size: 6.5px;
       color: #64748b;
-      margin-top: 4px;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       border-top: 1px dashed #cbd5e1;
-      padding-top: 3px;
+      padding-top: 2px;
     }
 
-    /* Print media query - Guaranteed single page A4 */
+    /* Print media query - Guaranteed single page A4 filled completely */
     @media print {
       @page {
         size: A4 portrait;
-        margin: 6mm 8mm 6mm 8mm;
+        margin: 5mm 7mm 5mm 7mm;
       }
       .no-print {
         display: none !important;
       }
       html, body {
         width: 100% !important;
-        height: auto !important;
-        min-height: 100% !important;
+        height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
@@ -3179,22 +3215,36 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       .print-container {
         width: 100% !important;
         max-width: 100% !important;
+        height: 287mm !important;
+        min-height: 287mm !important;
+        max-height: 287mm !important;
         margin: 0 !important;
         padding: 0 !important;
         box-shadow: none !important;
         border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
         page-break-inside: avoid !important;
         page-break-after: avoid !important;
         page-break-before: avoid !important;
+        overflow: hidden !important;
       }
       .marksheet-border {
         width: 100% !important;
+        height: 100% !important;
+        min-height: 287mm !important;
+        max-height: 287mm !important;
         box-sizing: border-box !important;
-        padding: 10px 14px !important;
-        border: 2px double #0d235c !important;
+        padding: 9px 12px !important;
+        border: 2.5px double #0d235c !important;
         border-radius: 4px !important;
-        gap: 5px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        gap: 0 !important;
         page-break-inside: avoid !important;
+        overflow: hidden !important;
       }
       * {
         page-break-inside: avoid !important;
@@ -3231,8 +3281,8 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
         </div>
         <div class="header-text">
           <h2>SWAMI VIVEKANANDA UNIVERSITY</h2>
-          <h3>IN COLLABORATION WITH CHAIL ARTIFICIAL INTELLIGENCE PLATFORM</h3>
-          <p class="subtitle">Established by West Bengal Act XXXIX of 2019 • UGC Recognised University • NAAC Accredited</p>
+          <h3>IN COLLABORATION WITH ChAIL ARTIFICIAL INTELLIGENCE PLATFORM</h3>
+          <div class="subtitle">Established by West Bengal Act XXXIX of 2019 • UGC Recognised University • NAAC Accredited • Autonomous Examination Council</div>
         </div>
         <div class="logo-box chail-logo">
           <span>ChAIL</span>
@@ -3242,54 +3292,55 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
 
       <!-- Academic Performance Title -->
       <div class="marksheet-title-bar">
-        ACADEMIC PERFORMANCE ASSESSMENT MARK SHEET • EVALUATION 2026-27
+        OFFICIAL ACADEMIC PERFORMANCE ASSESSMENT MARK SHEET & TRANSCRIPT • SESSION 2026-27
       </div>
 
       <!-- Student Profile Section -->
       <div class="sheet-section-banner">
-        STUDENT'S PROFILE & ACADEMIC CREDENTIALS
+        STUDENT'S PROFILE & REGISTRATION CREDENTIALS
       </div>
       <table class="profile-table">
         <tbody>
           <tr>
             <td class="lbl">STUDENT NAME</td>
-            <td class="val">${studentName}</td>
+            <td class="val"><b>${escapeHtml(studentName)}</b></td>
             <td class="lbl">SUBJECT STREAM</td>
-            <td class="val">${stream}</td>
+            <td class="val">${escapeHtml(stream)}</td>
           </tr>
           <tr>
-            <td class="lbl">EMAIL ID</td>
-            <td class="val">${email}</td>
+            <td class="lbl">REGISTRATION NO.</td>
+            <td class="val"><b>${escapeHtml(regNo)}</b></td>
             <td class="lbl">EVALUATION DATE</td>
             <td class="val">${date}</td>
           </tr>
           <tr>
-            <td class="lbl">QUALIFICATION</td>
-            <td class="val">${qualification}</td>
+            <td class="lbl">DEGREE / QUALIFICATION</td>
+            <td class="val">${escapeHtml(qualification)}</td>
             <td class="lbl">UNIVERSITY / BOARD</td>
-            <td class="val">${institution}</td>
+            <td class="val">${escapeHtml(institution)}</td>
           </tr>
           <tr>
-            <td class="lbl">INTERVIEW ID</td>
+            <td class="lbl">TRANSCRIPT ID</td>
             <td class="val">${interviewId}</td>
-            <td class="lbl">ASSESSOR ENGINE</td>
-            <td class="val">ChAIL AI Evaluator Module v2.0</td>
+            <td class="lbl">EXAMINATION CENTER</td>
+            <td class="val">SVU Main Campus (Code: SVU-01)</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Scholastic Area Section -->
+      <!-- Section A: Scholastic Competency Area -->
       <div class="sheet-section-banner">
-        ACADEMIC PERFORMANCE - SCHOLASTIC AREA (COMPETENCY PARAMETERS)
+        PART A: SCHOLASTIC AREA (CORE COMPETENCY PARAMETERS EVALUATION)
       </div>
       <table class="scholastic-table">
         <thead>
           <tr>
-            <th style="width: 44%;">SUBJECT PARAMETER EVALUATED</th>
-            <th style="width: 12%;">MAX MARKS</th>
-            <th style="width: 13%;">OBTAINED</th>
-            <th style="width: 10%;">GRADE</th>
-            <th style="width: 21%;">PERFORMANCE REMARK</th>
+            <th style="width: 38%;">SUBJECT PARAMETER EVALUATED</th>
+            <th style="width: 11%;">MAX MARKS</th>
+            <th style="width: 12%;">OBTAINED</th>
+            <th style="width: 11%;">GRADE PT</th>
+            <th style="width: 9%;">GRADE</th>
+            <th style="width: 19%;">PERFORMANCE REMARK</th>
           </tr>
         </thead>
         <tbody>
@@ -3297,36 +3348,41 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
             <td><b>Communication Confidence & Conviction</b></td>
             <td style="text-align: center;">100</td>
             <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.confidence.score}</td>
+            <td style="text-align: center; font-weight: 700;">${getGradePoint(scores.confidence.score)}</td>
             <td style="text-align: center; font-weight: 800;">${getGrade(scores.confidence.score)}</td>
-            <td class="remark-cell">${scores.confidence.remark}</td>
+            <td class="remark-cell">${escapeHtml(scores.confidence.remark)}</td>
           </tr>
           <tr>
             <td><b>Explanation Structure & Clarity</b></td>
             <td style="text-align: center;">100</td>
             <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.clarity.score}</td>
+            <td style="text-align: center; font-weight: 700;">${getGradePoint(scores.clarity.score)}</td>
             <td style="text-align: center; font-weight: 800;">${getGrade(scores.clarity.score)}</td>
-            <td class="remark-cell">${scores.clarity.remark}</td>
+            <td class="remark-cell">${escapeHtml(scores.clarity.remark)}</td>
           </tr>
           <tr>
             <td><b>Relevance & Context Match</b></td>
             <td style="text-align: center;">100</td>
             <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.relevance.score}</td>
+            <td style="text-align: center; font-weight: 700;">${getGradePoint(scores.relevance.score)}</td>
             <td style="text-align: center; font-weight: 800;">${getGrade(scores.relevance.score)}</td>
-            <td class="remark-cell">${scores.relevance.remark}</td>
+            <td class="remark-cell">${escapeHtml(scores.relevance.remark)}</td>
           </tr>
           <tr>
             <td><b>Technical Depth & Domain Knowledge</b></td>
             <td style="text-align: center;">100</td>
             <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.technicalDepth.score}</td>
+            <td style="text-align: center; font-weight: 700;">${getGradePoint(scores.technicalDepth.score)}</td>
             <td style="text-align: center; font-weight: 800;">${getGrade(scores.technicalDepth.score)}</td>
-            <td class="remark-cell">${scores.technicalDepth.remark}</td>
+            <td class="remark-cell">${escapeHtml(scores.technicalDepth.remark)}</td>
           </tr>
           <tr>
-            <td><b>Grammar, Sentence Phrasing & Vocabulary</b></td>
+            <td><b>Grammar, Phrasing & Nomenclature</b></td>
             <td style="text-align: center;">100</td>
             <td style="text-align: center; font-weight: 800; color: #0d235c;">${scores.grammar.score}</td>
+            <td style="text-align: center; font-weight: 700;">${getGradePoint(scores.grammar.score)}</td>
             <td style="text-align: center; font-weight: 800;">${getGrade(scores.grammar.score)}</td>
-            <td class="remark-cell">${scores.grammar.remark}</td>
+            <td class="remark-cell">${escapeHtml(scores.grammar.remark)}</td>
           </tr>
         </tbody>
       </table>
@@ -3334,22 +3390,57 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       <!-- Aggregate Performance Summary Bar -->
       <div class="aggregate-summary-bar">
         <div class="summary-col">
-          <span class="lbl">AGGREGATE SCORE</span>
+          <span class="lbl">TOTAL SCORE</span>
           <span class="val">${interview.overall_score} / 500</span>
         </div>
         <div class="summary-col">
-          <span class="lbl">PERCENTAGE RATING</span>
+          <span class="lbl">PERCENTAGE</span>
           <span class="val">${interview.percentage}%</span>
         </div>
         <div class="summary-col">
-          <span class="lbl">FINAL ACCREDITED GRADE</span>
+          <span class="lbl">SGPA / RATING</span>
+          <span class="val">${sgpa} / 10.0</span>
+        </div>
+        <div class="summary-col">
+          <span class="lbl">FINAL GRADE</span>
           <span class="val">${interview.final_grade}</span>
         </div>
         <div class="summary-col">
-          <span class="lbl">PERFORMANCE BAND</span>
-          <span class="val" style="font-size: 11px;">${interview.performance_level}</span>
+          <span class="lbl">CLASSIFICATION</span>
+          <span class="val" style="font-size: 9.5px;">${interview.performance_level}</span>
         </div>
       </div>
+
+      <!-- Section B: Question-Level Examination & Practical Audit Log -->
+      <div class="sheet-section-banner">
+        PART B: VIVA VOCE & PRACTICAL QUESTION ASSESSMENT AUDIT LOG
+      </div>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th style="width: 7%;">ITEM</th>
+            <th style="width: 48%;">EXAMINATION QUESTION / SYLLABUS TOPIC</th>
+            <th style="width: 25%;">CANDIDATE RESPONSE SUMMARY</th>
+            <th style="width: 9%;">MARKS</th>
+            <th style="width: 11%;">STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${auditQuestions.map(item => `
+            <tr>
+              <td style="text-align: center; font-weight: 700;">Q${item.qIndex + 1}</td>
+              <td><b>${escapeHtml(item.question.length > 70 ? item.question.slice(0, 68) + '...' : item.question)}</b></td>
+              <td style="font-size: 7px; color: ${item.status === 'correct' ? '#166534' : item.status === 'partially_correct' ? '#854d0e' : '#64748b'};">
+                ${escapeHtml(item.answer && item.answer !== 'No response provided.' ? (item.answer.length > 42 ? item.answer.slice(0, 40) + '...' : item.answer) : 'Unanswered / Skipped')}
+              </td>
+              <td style="text-align: center; font-weight: 800; color: #0d235c;">${item.score} / 10</td>
+              <td style="text-align: center; font-size: 7px; font-weight: 800; color: ${item.status === 'correct' ? '#166534' : item.status === 'partially_correct' ? '#854d0e' : '#991b1b'};">
+                ${item.status === 'correct' ? '✓ FULL' : item.status === 'partially_correct' ? '▲ PARTIAL' : '✗ SKIPPED'}
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
 
       <!-- Syllabus Evaluation Audit Bar -->
       <div class="exam-audit-bar">
@@ -3362,13 +3453,13 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
         <div class="side-box">
           <div class="side-title">🌟 KEY STRENGTHS DETECTED</div>
           <ul>
-            ${strengths.slice(0, 3).map(str => `<li>✔ ${str}</li>`).join("")}
+            ${strengths.slice(0, 3).map(str => `<li>✔ ${escapeHtml(str)}</li>`).join("")}
           </ul>
         </div>
         <div class="side-box">
           <div class="side-title">🎯 TARGET DEVELOPMENT AREAS</div>
           <ul>
-            ${devAreas.slice(0, 3).map(dev => `<li>• ${dev}</li>`).join("")}
+            ${devAreas.slice(0, 3).map(dev => `<li>• ${escapeHtml(dev)}</li>`).join("")}
           </ul>
         </div>
       </div>
@@ -3376,7 +3467,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       <!-- AI Appraisal Block -->
       <div class="appraisal-box">
         <div class="appraisal-title">CHIEF AI APPRAISAL REMARK & COUNCIL EVALUATION</div>
-        <p>${interview.summary}</p>
+        <p>${escapeHtml(interview.summary)}</p>
       </div>
 
       <!-- Official SVU Grading Scale -->
@@ -3394,34 +3485,69 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
         </thead>
         <tbody>
           <tr>
-            <td><b>GRADE AWARDED</b></td>
-            <td><b>A+</b> (Outstanding)</td>
-            <td><b>A</b> (Excellent)</td>
-            <td><b>B+</b> (Very Good)</td>
-            <td><b>B</b> (Good)</td>
-            <td><b>C</b> (Passable)</td>
-            <td><b>F</b> (Needs Attention)</td>
+            <td><b>GRADE & GRADE POINT</b></td>
+            <td><b>A+</b> (GP: 10) Outstanding</td>
+            <td><b>A</b> (GP: 9) Excellent</td>
+            <td><b>B+</b> (GP: 8) Very Good</td>
+            <td><b>B</b> (GP: 7) Good</td>
+            <td><b>C</b> (GP: 6) Passable</td>
+            <td><b>F</b> (GP: 0) Fail</td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Signatures Row -->
+      <!-- Signatures Row with Official Seal and Security QR Code -->
       <div class="sheet-signatures">
         <div class="sig-col">
           <div class="sig-line-chail">
-            <img src="/api/assets/chail-signature" alt="Chail Signature" style="max-height: 38px; max-width: 120px; mix-blend-mode: multiply;" referrerPolicy="no-referrer" />
+            <img src="/api/assets/chail-signature" alt="Chail Signature" style="max-height: 32px; max-width: 105px; mix-blend-mode: multiply;" referrerPolicy="no-referrer" />
           </div>
           <div class="sig-lbl">Applicant Signatory</div>
           <div class="sig-sub">Candidate Digital Stamp</div>
         </div>
-        <div class="sig-col">
+
+        <div class="qr-box">
+          <svg width="38" height="38" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="44" height="44" fill="#f8fafc" rx="4" stroke="#cbd5e1"/>
+            <!-- Outer finder corners -->
+            <rect x="4" y="4" width="12" height="12" fill="#0d235c"/>
+            <rect x="6" y="6" width="8" height="8" fill="#ffffff"/>
+            <rect x="8" y="8" width="4" height="4" fill="#0d235c"/>
+
+            <rect x="28" y="4" width="12" height="12" fill="#0d235c"/>
+            <rect x="30" y="6" width="8" height="8" fill="#ffffff"/>
+            <rect x="32" y="8" width="4" height="4" fill="#0d235c"/>
+
+            <rect x="4" y="28" width="12" height="12" fill="#0d235c"/>
+            <rect x="6" y="30" width="8" height="8" fill="#ffffff"/>
+            <rect x="8" y="32" width="4" height="4" fill="#0d235c"/>
+
+            <!-- Data pixels pattern -->
+            <rect x="18" y="5" width="3" height="3" fill="#0d235c"/>
+            <rect x="23" y="5" width="3" height="3" fill="#0d235c"/>
+            <rect x="18" y="10" width="3" height="3" fill="#0d235c"/>
+            <rect x="20" y="18" width="4" height="4" fill="#c21c24"/>
+            <rect x="18" y="24" width="3" height="3" fill="#0d235c"/>
+            <rect x="24" y="22" width="3" height="3" fill="#0d235c"/>
+            <rect x="28" y="18" width="4" height="3" fill="#0d235c"/>
+            <rect x="34" y="22" width="3" height="4" fill="#0d235c"/>
+            <rect x="20" y="32" width="3" height="3" fill="#0d235c"/>
+            <rect x="25" y="34" width="4" height="3" fill="#0d235c"/>
+            <rect x="32" y="30" width="4" height="4" fill="#0d235c"/>
+            <rect x="38" y="36" width="3" height="3" fill="#0d235c"/>
+          </svg>
+          <span style="font-size: 5px; font-weight: 800; color: #0d235c; margin-top: 1.5px;">SCAN TO VERIFY</span>
+        </div>
+
+        <div class="sig-col" style="width: 20%;">
           <div class="university-seal">
-            <span style="color: #0d235c; font-size: 7px; font-weight: 900;">SVU • ChAIL</span>
+            <span style="color: #0d235c; font-size: 6px; font-weight: 900;">SVU • ChAIL</span>
             <span class="seal-small">EXAMINATION</span>
             <span class="seal-small">COUNCIL</span>
-            <span style="font-size: 5px; color: #c21c24; margin-top: 1px;">ACCREDITED</span>
+            <span style="font-size: 4px; color: #c21c24; margin-top: 1px;">ACCREDITED</span>
           </div>
         </div>
+
         <div class="sig-col">
           <div class="sig-line-sig">Swami Vivekananda University</div>
           <div class="sig-lbl">Authorized Signatory</div>
@@ -3430,7 +3556,7 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
       </div>
 
       <div class="transcript-footnote">
-        Official University Document • Reference ID: ${interviewId} • Digitally Certified via SVU Examination & AI Evaluation Portal
+        Official University Document • Reference ID: ${interviewId} • Security Barcode: |||| ||||| ||||||| ||||| • West Bengal Act XXXIX of 2019
       </div>
 
     </div>
