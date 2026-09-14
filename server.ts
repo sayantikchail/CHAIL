@@ -3586,6 +3586,12 @@ app.get("/api/interview/print/:userId/:interviewId?", async (req, res) => {
 async function startServer() {
   await initDB();
 
+  // Directly serve public directory for favicons, manifest, and icons
+  const publicPath = path.join(process.cwd(), "public");
+  if (fs.existsSync(publicPath)) {
+    app.use(express.static(publicPath));
+  }
+
   // Detect whether running in production mode (bundled dist or explicit production flag)
   const isProduction =
     process.env.NODE_ENV === "production" ||

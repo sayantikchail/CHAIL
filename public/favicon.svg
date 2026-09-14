@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Squircle Gradient -->
+    <linearGradient id="squircleBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0a1228" />
+      <stop offset="100%" stop-color="#040814" />
+    </linearGradient>
+
+    <!-- Outer Squircle Border Gradient -->
+    <linearGradient id="squircleBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.28)" />
+      <stop offset="50%" stop-color="rgba(56, 189, 248, 0.35)" />
+      <stop offset="100%" stop-color="rgba(255, 255, 255, 0.12)" />
+    </linearGradient>
+
+    <!-- Ambient Cyan Radial Glow behind Speech Bubble -->
+    <radialGradient id="cyanBacklight" cx="50%" cy="40%" r="48%">
+      <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.65" />
+      <stop offset="45%" stop-color="#0ea5e9" stop-opacity="0.3" />
+      <stop offset="85%" stop-color="#0284c7" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- 'A' Gradient in ChAIL -->
+    <linearGradient id="aGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="60%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+
+    <!-- Subtle Glow Filter for Star -->
+    <filter id="starGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Premium Dark Navy App Icon Squircle Container -->
+  <rect x="18" y="18" width="476" height="476" rx="108" fill="url(#squircleBg)" stroke="url(#squircleBorder)" stroke-width="4.5" />
+
+  <!-- Cyan Radiant Backlight Aura -->
+  <circle cx="260" cy="208" r="162" fill="url(#cyanBacklight)" />
+
+  <!-- Main Speech Bubble Shape -->
+  <!-- Outer stroke with dark navy interior -->
+  <path
+    d="M 260 92 C 328 92 384 146 384 212 C 384 278 328 332 260 332 C 238 332 217 326 198 316 L 148 336 L 165 290 C 146 268 136 241 136 212 C 136 146 192 92 260 92 Z"
+    fill="#080e22"
+    stroke="#ffffff"
+    stroke-width="18"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+
+  <!-- Neural Network Nodes & Connections (Left Side of Bubble) -->
+  <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="230" y1="156" x2="194" y2="182" />
+    <line x1="230" y1="156" x2="218" y2="216" />
+    <line x1="194" y1="182" x2="178" y2="222" />
+    <line x1="194" y1="182" x2="218" y2="216" />
+    <line x1="178" y1="222" x2="196" y2="258" />
+    <line x1="218" y1="216" x2="196" y2="258" />
+    <line x1="218" y1="216" x2="256" y2="214" />
+  </g>
+
+  <!-- 5 Circular Neural Nodes -->
+  <circle cx="230" cy="156" r="9.5" fill="#ffffff" />
+  <circle cx="194" cy="182" r="9.5" fill="#ffffff" />
+  <circle cx="178" cy="222" r="9.5" fill="#ffffff" />
+  <circle cx="218" cy="216" r="9.5" fill="#ffffff" />
+  <circle cx="196" cy="258" r="9.5" fill="#ffffff" />
+
+  <!-- Studio Microphone Capsule & Stand (Right Side of Bubble) -->
+  <!-- Microphone Capsule Head -->
+  <rect x="268" y="152" width="34" height="66" rx="17" ry="17" fill="#ffffff" />
+  <!-- Capsule Dark Grille Slots -->
+  <rect x="273" y="172" width="24" height="4" rx="2" fill="#080e22" />
+  <rect x="273" y="182" width="24" height="4" rx="2" fill="#080e22" />
+  <rect x="273" y="192" width="24" height="4" rx="2" fill="#080e22" />
+
+  <!-- U-Shaped Suspension Cradle -->
+  <path
+    d="M 254 186 C 254 228 316 228 316 186"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="11"
+    stroke-linecap="round"
+  />
+
+  <!-- Vertical Microphone Stand Stem -->
+  <line x1="285" y1="226" x2="285" y2="262" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
+
+  <!-- Horizontal Microphone Base -->
+  <line x1="268" y1="262" x2="302" y2="262" stroke="#ffffff" stroke-width="11" stroke-linecap="round" />
+
+  <!-- Cyan Sparkle Star (Top Right) -->
+  <path
+    d="M 326 142 Q 326 162 346 162 Q 326 162 326 182 Q 326 162 306 162 Q 326 162 326 142 Z"
+    fill="#00f2fe"
+    filter="url(#starGlow)"
+  />
+
+  <!-- Bold Clean ChAIL Typography at Bottom -->
+  <text x="256" y="420" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="78" letter-spacing="-1px">
+    <tspan fill="#ffffff">Ch</tspan><tspan fill="url(#aGradient)">A</tspan><tspan fill="#ffffff">IL</tspan>
+  </text>
+</svg>
