@@ -4,6 +4,14 @@ import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
+import {
+  userRecentQuestions,
+  normalizeQuestionText,
+  evaluateQuestionAndAnswerStrict,
+  generateCvStrictQuestions,
+  QuestionEvaluationResult,
+  QuestionItem
+} from "./interviewEngine";
 
 dotenv.config();
 
@@ -538,7 +546,7 @@ async function generateContentWithFallback(
   prompt: string | any[],
   isJson: boolean = false
 ): Promise<string> {
-  const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-flash-latest"];
+  const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
   let lastError: any = null;
 
   for (const modelName of modelsToTry) {
@@ -1367,6 +1375,8 @@ app.post("/api/interview/questions", async (req, res) => {
     
     // Retrieve all unique previously asked questions for this user to avoid repetitions
     let pastQuestionsList: string[] = [];
+    const pastQuestionsNormalized = new Set<string>();
+
     try {
       const [pastInterviews]: any = await pool.execute("SELECT questions FROM interviews WHERE user_id = ?", [userId]);
       if (pastInterviews && pastInterviews.length > 0) {
@@ -1377,6 +1387,7 @@ app.post("/api/interview/questions", async (req, res) => {
             list.forEach((q: string) => {
               if (q && q.trim()) {
                 uniqueQuestions.add(q.trim());
+                pastQuestionsNormalized.add(normalizeQuestionText(q));
               }
             });
           }
@@ -1387,6 +1398,17 @@ app.post("/api/interview/questions", async (req, res) => {
       console.error("Failed to query past questions:", dbErr);
     }
 
+    // Include recent session in-memory questions to guarantee uniqueness across practice attempts
+    const recentCached = userRecentQuestions.get(Number(userId));
+    if (recentCached) {
+      recentCached.forEach(q => {
+        if (!pastQuestionsList.includes(q)) {
+          pastQuestionsList.push(q);
+        }
+        pastQuestionsNormalized.add(normalizeQuestionText(q));
+      });
+    }
+
     let pastQuestionsRule = "";
     if (pastQuestionsList.length > 0) {
       pastQuestionsRule = `
@@ -1395,7 +1417,7 @@ app.post("/api/interview/questions", async (req, res) => {
         The student has already answered the following questions in past practice sessions. Under no circumstances should you repeat these questions or generate highly similar variations. You MUST ask completely different questions covering other concepts, tasks, scenarios, or sub-topics:
         ${pastQuestionsList.map((q, idx) => `${idx + 1}. "${q}"`).join("\n")}
         
-        Make sure the new 10 questions are entirely unique and have zero overlap with the above list.`;
+        Make sure the new 15 questions are entirely unique, fresh, and have zero overlap with the above list.`;
     }
 
     let analysis: any = null;
@@ -1556,86 +1578,24 @@ app.post("/api/interview/questions", async (req, res) => {
       ];
     }
 
-    // Filter out past questions from the fallback pool if we have enough variety left
-    let filteredFallback = fallbackQuestions;
-    if (pastQuestionsList.length > 0) {
-      const lowerPast = pastQuestionsList.map(q => q.toLowerCase().trim());
-      filteredFallback = fallbackQuestions.filter(f => !lowerPast.includes(f.q.toLowerCase().trim()));
-    }
-    
-    // If we have at least 15 questions left, use them, otherwise use all available questions
-    if (filteredFallback.length >= 15) {
-      fallbackQuestions = filteredFallback;
-    }
+    // Extract candidate's real CV skills and projects for strict generation
+    const candidateSkills = skillsList.map((s: any) => (typeof s === "string" ? s : s.name || "")).filter(Boolean);
+    const candidateProjects = (analysis && analysis.keyProjects && Array.isArray(analysis.keyProjects)) ? analysis.keyProjects : [];
 
-    let customTailoredQuestions: any[] = [];
-    // Dynamically inject questions tailored to the candidate's exact detected CV skills and projects
-    if (skillsList.length > 0 || (analysis && analysis.keyProjects && analysis.keyProjects.length > 0)) {
-      const pList = (analysis && analysis.keyProjects && Array.isArray(analysis.keyProjects)) ? analysis.keyProjects : [];
-      
-      // Inject project-specific questions from their real CV
-      pList.forEach((proj: any, idx: number) => {
-        if (proj.title && customTailoredQuestions.length < 4) {
-          if (proj.title.toLowerCase().includes("academic portal")) return;
-          const questionText = isArtsOrGeneral
-            ? `Based on your academic curriculum and resume, detail your specific inquiry or methodology in "${proj.title}". What primary themes, sources, or analytical frameworks did you examine, and what conclusions did you reach?`
-            : `Based on your resume, detail your direct contribution to the project "${proj.title}" (${proj.techStack || "specialized tools"}). What were the critical workflow bottlenecks or execution constraints, and how did you resolve them?`;
-          customTailoredQuestions.push({
-            q: questionText,
-            s: isArtsOrGeneral
-              ? "Focus on research questions, qualitative sources, and structured analytical conclusions."
-              : "Use the STAR approach. Focus on tools used, your personal problem-solving, and measurable results.",
-            d: idx === 0 ? "Hard" : "Medium",
-            type: "long"
-          });
-        }
-      });
+    // Base fallback questions generated purely from CV and domain without repeats
+    const cvStrictBaseQuestions = generateCvStrictQuestions(
+      candidateSkills,
+      candidateProjects,
+      stream,
+      qualification,
+      pastInterviewCount + 1,
+      pastQuestionsNormalized,
+      language
+    );
 
-      // Inject skill-specific scenario questions from their real CV skills
-      skillsList.slice(0, 5).forEach((skill: any, idx: number) => {
-        const sName = typeof skill === "string" ? skill : skill.name;
-        if (sName && customTailoredQuestions.length < 8) {
-          if (idx % 2 === 0) {
-            customTailoredQuestions.push({
-              q: `Regarding your proficiency in "${sName}": explain an advanced methodology or analytical workflow you apply when producing high-standard work under strict deadlines.`,
-              s: `Cite a concrete professional workflow or technique specific to ${sName}.`,
-              d: idx < 2 ? "Easy" : "Medium",
-              type: "short"
-            });
-          } else {
-            customTailoredQuestions.push({
-              q: `How do you evaluate industry standards, quality control, and stakeholder requirements when executing tasks using "${sName}"? Provide a specific practical scenario.`,
-              s: "Describe specific quality benchmarks and problem-solving steps.",
-              d: "Medium",
-              type: "long"
-            });
-          }
-        }
-      });
-    }
-
-    // Shuffle the available generic fallback questions
-    let shuffledGeneric = shuffleArray(fallbackQuestions);
-    
-    // Combine custom tailored questions with domain fallbacks to make exactly 15 questions
-    let finalFallbackList = [...customTailoredQuestions];
-    const neededCount = 15 - finalFallbackList.length;
-    if (neededCount > 0) {
-      finalFallbackList.push(...shuffledGeneric.slice(0, neededCount));
-    }
-    
-    // Re-sort the 15 questions so they are sequentially ordered: Easy, then Medium, then Hard
-    const difficultyOrder = { "Easy": 1, "Medium": 2, "Hard": 3 };
-    finalFallbackList.sort((a, b) => {
-      const orderA = difficultyOrder[a.d as keyof typeof difficultyOrder] || 2;
-      const orderB = difficultyOrder[b.d as keyof typeof difficultyOrder] || 2;
-      return orderA - orderB;
-    });
-
-    fallbackQuestions = finalFallbackList;
+    let questions = cvStrictBaseQuestions;
 
     const ai = getGeminiClient();
-    let questions = fallbackQuestions;
 
     if (ai) {
       try {
@@ -1709,12 +1669,38 @@ app.post("/api/interview/questions", async (req, res) => {
             cleanedText = cleanedText.replace(/^```[a-zA-Z]*\n/, "").replace(/\n```$/, "").trim();
           }
           const parsed = JSON.parse(cleanedText);
-          if (Array.isArray(parsed) && parsed.length === 15) {
-            questions = parsed;
+          if (Array.isArray(parsed) && parsed.length >= 10) {
+            // Filter to ensure no past question repeats
+            const nonRepeatingQuestions: any[] = [];
+            const seenThisTurn = new Set<string>();
+
+            for (const qItem of parsed) {
+              if (qItem && qItem.q) {
+                const norm = normalizeQuestionText(qItem.q);
+                if (!pastQuestionsNormalized.has(norm) && !seenThisTurn.has(norm)) {
+                  seenThisTurn.add(norm);
+                  nonRepeatingQuestions.push(qItem);
+                }
+              }
+            }
+
+            // Fill up with cvStrictBaseQuestions if any were filtered out
+            for (const baseQ of cvStrictBaseQuestions) {
+              if (nonRepeatingQuestions.length >= 15) break;
+              const baseNorm = normalizeQuestionText(baseQ.q);
+              if (!seenThisTurn.has(baseNorm) && !pastQuestionsNormalized.has(baseNorm)) {
+                seenThisTurn.add(baseNorm);
+                nonRepeatingQuestions.push(baseQ);
+              }
+            }
+
+            if (nonRepeatingQuestions.length === 15) {
+              questions = nonRepeatingQuestions;
+            }
           }
         }
       } catch (aiError) {
-        console.error("Gemini Question Generation failed, using customized fallbacks:", aiError);
+        console.error("Gemini Question Generation failed, using customized CV-strict fallbacks:", aiError);
       }
     }
 
@@ -1803,25 +1789,34 @@ app.post("/api/interview/questions", async (req, res) => {
       };
     });
 
+    // Save into userRecentQuestions cache so immediate retakes never repeat these questions
+    if (!userRecentQuestions.has(Number(userId))) {
+      userRecentQuestions.set(Number(userId), new Set());
+    }
+    const recentSet = userRecentQuestions.get(Number(userId))!;
+    enrichedQuestions.forEach((q: any) => {
+      if (q && q.q) {
+        recentSet.add(q.q);
+      }
+    });
+
     return res.status(200).json({ questions: enrichedQuestions });
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to generate interview questions: " + error.message });
   }
 });
 
-interface QuestionEvaluationResult {
-  qIndex: number;
-  question: string;
-  answer: string;
-  status: "correct" | "partially_correct" | "incorrect" | "unanswered";
-  score: number; // 0 to 10
-  maxScore: number; // 10
-  grade: "A+" | "A" | "B+" | "B" | "C" | "F";
-  feedback: string;
-}
-
 // Robust semantic evaluation helper for individual question & answer
 function evaluateQuestionAndAnswer(
+  qTextRaw: string,
+  ansRaw: string,
+  index: number,
+  context: { qualification?: string; stream?: string; skills?: string[] } = {}
+): QuestionEvaluationResult {
+  return evaluateQuestionAndAnswerStrict(qTextRaw, ansRaw, index, context.skills || []);
+}
+
+function _legacyEvaluateQuestionAndAnswer(
   qTextRaw: string,
   ansRaw: string,
   index: number,
@@ -2152,28 +2147,28 @@ app.post("/api/interview/evaluate", async (req, res) => {
 
     let evaluation: any;
 
-    if (attemptedCount === 0) {
+    if (attemptedCount === 0 || totalEarnedPoints === 0) {
       evaluation = {
-        confidence: { score: 0, remark: "No response submitted." },
-        clarity: { score: 0, remark: "No response submitted." },
-        relevance: { score: 0, remark: "No response submitted." },
-        technicalDepth: { score: 0, remark: "No response submitted." },
-        grammar: { score: 0, remark: "No response submitted." },
+        confidence: { score: 0, remark: "No response submitted or all answers lacked factual validity." },
+        clarity: { score: 0, remark: "No structured technical explanations provided." },
+        relevance: { score: 0, remark: "Responses did not address the required subject matter." },
+        technicalDepth: { score: 0, remark: "No technical accuracy or subject knowledge demonstrated (0 marks awarded)." },
+        grammar: { score: 0, remark: "No valid responses provided to assess professional syntax." },
         overallScore: 0,
         percentage: 0,
         finalGrade: "F",
         performanceLevel: "FAIL / POOR",
-        strengths: ["None", "None", "None"],
+        strengths: ["None identified", "None identified", "None identified"],
         developmentAreas: [
-          "Candidate skipped or left blank all interview questions.",
-          "Must answer questions in detail to build marks.",
-          "Prepare core technical and stream concepts from resume."
+          "Candidate skipped or provided incorrect/meaningless responses across all questions.",
+          "Must thoroughly prepare core technical and academic concepts from resume.",
+          "Provide complete, accurate explanations during the interview panel."
         ],
-        summary: "The candidate did not answer any questions in this interview session. As a result, they received a score of zero. Active practice and thorough study of your resume topics are highly recommended before attempting again.",
+        summary: "The candidate did not demonstrate valid technical accuracy or conceptual understanding in this interview session. As a result, they received an overall score of zero. Active practice and thorough study of your resume topics are required before attempting again.",
         recommendations: [
-          "Do not skip questions during the interview panel.",
-          "Formulate standard, clear conceptual answers.",
-          "Provide answers with minimum details (at least 3 words)."
+          "Carefully review the technical topics, tools, and projects listed on your CV.",
+          "Provide detailed, accurate answers directly addressing each question prompt.",
+          "Avoid skipping questions or submitting arbitrary text."
         ],
         questionWise: questionWiseResults
       };
@@ -2181,38 +2176,15 @@ app.post("/api/interview/evaluate", async (req, res) => {
       const correctIndices = questionWiseResults.filter(q => q.status === "correct").map(q => `Q${q.qIndex + 1}`);
       const correctLabels = correctIndices.length > 0 ? correctIndices.join(", ") : "None";
 
-      // Proportional parameter calculations based on question accuracy and syllabus coverage
-      const accuracyRatio = attemptedCount > 0 ? totalEarnedPoints / (attemptedCount * 10) : 0;
-      const coverageRatio = attemptedCount / totalQs;
-      const overallRatio = totalEarnedPoints / maxPossiblePoints;
+      // Calculate score purely from answer quality and technical correctness
+      const percentage = Math.min(100, Math.max(0, Math.round((totalEarnedPoints / maxPossiblePoints) * 100)));
+      const overallScore = Math.round(percentage * 5);
 
-      // Technical Depth: directly rewards accuracy on correct questions (e.g. Q4 MS Excel)
-      const technicalDepthScore = Math.min(100, Math.max(5, Math.round(
-        (correctCount > 0 ? 20 : 0) + (overallRatio * 50) + (accuracyRatio * 30)
-      )));
-
-      // Relevance: directly rewards correct alignment to practical scenario questions
-      const relevanceScore = Math.min(100, Math.max(5, Math.round(
-        (correctCount > 0 ? 18 : 0) + (overallRatio * 52) + (accuracyRatio * 30)
-      )));
-
-      // Clarity: rewards formatted, clear responses
-      const clarityScore = Math.min(100, Math.max(5, Math.round(
-        (correctCount > 0 ? 15 : 0) + (overallRatio * 55) + (accuracyRatio * 30)
-      )));
-
-      // Confidence: rewards attempting questions and conviction
-      const confidenceScore = Math.min(100, Math.max(5, Math.round(
-        (coverageRatio * 40) + (overallRatio * 40) + (accuracyRatio * 20)
-      )));
-
-      // Grammar & Professional Phrasing
-      const grammarScore = Math.min(100, Math.max(10, Math.round(
-        (attemptedCount > 0 ? 15 : 0) + (overallRatio * 50) + (accuracyRatio * 35)
-      )));
-
-      const overallScore = confidenceScore + clarityScore + relevanceScore + technicalDepthScore + grammarScore;
-      const percentage = Math.round(overallScore / 5);
+      const technicalDepthScore = percentage;
+      const relevanceScore = percentage;
+      const clarityScore = percentage;
+      const confidenceScore = Math.min(100, Math.round((attemptedCount / totalQs) * 20 + percentage * 0.8));
+      const grammarScore = percentage;
 
       let finalGrade = "F";
       if (percentage >= 90) finalGrade = "A+";
@@ -2227,7 +2199,6 @@ app.post("/api/interview/evaluate", async (req, res) => {
       else if (percentage >= 70) performanceLevel = "VERY GOOD";
       else if (percentage >= 60) performanceLevel = "GOOD";
       else if (percentage >= 50) performanceLevel = "PASSABLE";
-      else if (percentage >= 20) performanceLevel = "NEEDS ATTENTION / INSUFFICIENT";
 
       evaluation = {
         confidence: {
@@ -2239,8 +2210,8 @@ app.post("/api/interview/evaluate", async (req, res) => {
         clarity: {
           score: clarityScore,
           remark: correctCount > 0 
-            ? `Direct and clear responses on attempted practical items (notably ${correctLabels}).` 
-            : "Responses lacked structured explanations and depth."
+            ? `Direct and clear responses on practical items (notably ${correctLabels}).` 
+            : "Responses lacked structured explanations and technical depth."
         },
         relevance: {
           score: relevanceScore,
@@ -2256,7 +2227,7 @@ app.post("/api/interview/evaluate", async (req, res) => {
         },
         grammar: {
           score: grammarScore,
-          remark: "Professional syntax and acceptable terminology on submitted responses."
+          remark: "Professional syntax evaluated based on technical clarity of responses."
         },
         overallScore,
         percentage,
@@ -2265,22 +2236,22 @@ app.post("/api/interview/evaluate", async (req, res) => {
         strengths: [
           correctCount > 0 ? `Successfully answered ${correctLabels} with technical accuracy.` : "Willingness to attempt interview questions.",
           attemptedCount > 0 ? "Provided concise answers on selected prompts." : "Participated in assessment session.",
-          "Demonstrated foundational understanding of digital applications."
+          "Demonstrated foundational understanding of resume topics."
         ],
         developmentAreas: [
           unansweredCount > 0 ? `Skipped ${unansweredCount} of ${totalQs} questions; all topics must be attempted.` : "Provide detailed rationales for each option.",
           incorrectCount > 0 ? `Incorrect responses on ${incorrectCount} question(s); review core principles.` : "Deepen practical case study implementations.",
           "Prepare comprehensive answers covering the full academic syllabus."
         ],
-        summary: `The candidate attempted ${attemptedCount} of ${totalQs} questions. Demonstrated accurate technical understanding in ${correctLabels} (${correctCount > 0 ? 'MS Excel Conditional Formatting' : 'core concept'}). However, ${incorrectCount} question(s) were incorrect or penalized, and ${unansweredCount} question(s) were skipped, resulting in an aggregate score of ${overallScore}/500 (${percentage}%, Grade ${finalGrade}). Consistent answering across all syllabus topics is required to qualify.`,
+        summary: `The candidate attempted ${attemptedCount} of ${totalQs} questions. Demonstrated accurate technical understanding in ${correctLabels}. Overall score: ${overallScore}/500 (${percentage}%, Grade ${finalGrade}), strictly calculated based on the technical correctness and quality of provided answers.`,
         recommendations: [
-          "Attempt all interview questions without skipping to maximize cumulative score.",
-          "Review correct tools for academic portals and office scheduling workflows.",
-          "Provide step-by-step reasoning when explaining digital classroom techniques."
+          "Target revision on questions where partial or zero credit was awarded.",
+          "Structure open-ended answers with clear technical definitions followed by practical examples.",
+          "Review core technical documentation and project implementations from your CV."
         ],
         questionWise: questionWiseResults
       };
-    };
+    }
 
     if (ai) {
       try {
@@ -2359,17 +2330,29 @@ app.post("/api/interview/evaluate", async (req, res) => {
             cleanedText = cleanedText.replace(/^```[a-zA-Z]*\n/, "").replace(/\n```$/, "").trim();
           }
           const parsed = JSON.parse(cleanedText);
-          if (parsed && typeof parsed === "object" && parsed.confidence && (parsed.overallScore > 0 || attemptedCount === 0)) {
+          if (parsed && typeof parsed === "object" && parsed.confidence) {
             if (totalEarnedPoints > 0) {
-              parsed.overallScore = Math.max(parsed.overallScore || 0, evaluation.overallScore);
-              parsed.percentage = Math.max(parsed.percentage || 0, evaluation.percentage);
-              if (evaluation.confidence?.score) parsed.confidence.score = Math.max(parsed.confidence?.score || 0, evaluation.confidence.score);
-              if (evaluation.clarity?.score) parsed.clarity.score = Math.max(parsed.clarity?.score || 0, evaluation.clarity.score);
-              if (evaluation.relevance?.score) parsed.relevance.score = Math.max(parsed.relevance?.score || 0, evaluation.relevance.score);
-              if (evaluation.technicalDepth?.score) parsed.technicalDepth.score = Math.max(parsed.technicalDepth?.score || 0, evaluation.technicalDepth.score);
-              if (evaluation.grammar?.score) parsed.grammar.score = Math.max(parsed.grammar?.score || 0, evaluation.grammar.score);
+              // Ensure numeric scores are strictly anchored to real accuracy
+              parsed.overallScore = evaluation.overallScore;
+              parsed.percentage = evaluation.percentage;
+              if (parsed.confidence) parsed.confidence.score = evaluation.confidence.score;
+              if (parsed.clarity) parsed.clarity.score = evaluation.clarity.score;
+              if (parsed.relevance) parsed.relevance.score = evaluation.relevance.score;
+              if (parsed.technicalDepth) parsed.technicalDepth.score = evaluation.technicalDepth.score;
+              if (parsed.grammar) parsed.grammar.score = evaluation.grammar.score;
               parsed.finalGrade = evaluation.finalGrade;
               parsed.performanceLevel = evaluation.performanceLevel;
+            } else {
+              // 0 points earned: zero credit across all parameters
+              parsed.overallScore = 0;
+              parsed.percentage = 0;
+              parsed.confidence = { score: 0, remark: "No response submitted or answers lacked conceptual validity." };
+              parsed.clarity = { score: 0, remark: "No valid structured explanations provided." };
+              parsed.relevance = { score: 0, remark: "Responses did not address the required subject matter." };
+              parsed.technicalDepth = { score: 0, remark: "No technical accuracy or subject knowledge demonstrated (0 marks awarded)." };
+              parsed.grammar = { score: 0, remark: "No valid responses provided to assess professional syntax." };
+              parsed.finalGrade = "F";
+              parsed.performanceLevel = "FAIL / POOR";
             }
             parsed.questionWise = questionWiseResults;
             evaluation = parsed;
